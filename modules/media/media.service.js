@@ -1,7 +1,9 @@
-import { createMediaFile } from "./files/files.service.js";
+import { createMediaFile, deleteMediaFile } from "./files/files.service.js";
 import { BadRequestError } from "../../errors/Http.error.js";
 import { MediaFile } from "../../models/MediaFile.models.js";
 import { createAsset, deleteAsset } from "./assets/assets.service.js";
+import { logger } from "../../config/logger.js";
+import { mediaContext } from "../../middlewares/media.middlware.js";
 
 
 export const mediaService = {
@@ -13,27 +15,25 @@ export const mediaService = {
     userId,
     session
   }) {
-    let assetId = null;
 
     // -----------------------------
     // CASE 1: NEW FILE UPLOAD
     // -----------------------------
     if (file) {
+    
       const mediaFile = await createMediaFile({
         file,
-        uploadedBy: context.owner,
-        session
-      });
+        uploadedBy: context.owner
+      },session);
 
       const asset = await createAsset({
-        file: mediaFile._id,
+        file: mediaFile.id,
         uploadedBy: context.owner,
         usageType:context.usageType,
-        namespace:context.namespace,
-        session
-      });
-
+        namespace:context.namespace
+      },session);
       return asset._id;
+      
     }
 
     // -----------------------------
@@ -49,9 +49,8 @@ export const mediaService = {
         file: fileId,
         uploadedBy: userId,
         usageType:context.usageType,
-        usageType:context.namespace,
-        session
-      });
+        usageType:context.namespace
+      },session);
 
       return asset._id;
     }
@@ -78,8 +77,7 @@ export const mediaService = {
   async upload({
     file,
     context,
-    session = null
-  }) {
+  },session = null) {
     if (!file) return null;
 
     if (!context?.owner) {
@@ -89,9 +87,8 @@ export const mediaService = {
     // 1. Create MediaFile
     const mediaFile = await createMediaFile({
       file,
-      uploadedBy: context.owner,
-      session
-    });
+      uploadedBy: context.owner
+    },session);
 
     // 2. Create MediaAsset
     const asset = await createAsset({
@@ -99,9 +96,8 @@ export const mediaService = {
       uploadedBy: context.owner,
       usageType: context.usageType,
       namespace: context.namespace,
-      entity: context.entity,
-      session
-    });
+      entity: context.entity
+    },session);
 
     return asset;
   },
@@ -111,17 +107,15 @@ export const mediaService = {
    */
   async uploadMany({
     files = [],
-    context,
-    session = null
-  }) {
+    context
+  },session = null) {
     const results = [];
 
     for (const file of files) {
       const asset = await this.upload({
         file,
-        context,
-        session
-      });
+        context
+      },session);
 
       if (asset) results.push(asset);
     }

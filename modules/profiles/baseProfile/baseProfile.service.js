@@ -5,6 +5,7 @@ import { BadRequestError, InternalServerError, NotFoundError } from "../../../er
 import { mediaService } from "../../media/media.service.js";
 
 export const createProfile = async (userId, profileData, media, context) => {
+
   const session = await mongoose.startSession();
   session.startTransaction();
 
@@ -12,11 +13,13 @@ export const createProfile = async (userId, profileData, media, context) => {
 
     const assetId = await mediaService.resolve({
           file: media?.file,
-          fileId,
           context,
           userId,
           session
       });
+
+
+    console.log(userId);
 
     const [profile] = await Profile.create(
       [
@@ -29,6 +32,7 @@ export const createProfile = async (userId, profileData, media, context) => {
       { session }
     );
 
+    console.log(profile)
     await User.updateOne(
       { _id: userId },
       { profileStatus: "COMPLETE" },

@@ -26,7 +26,7 @@ export const protect = (req, res, next) => {
     profileStatus: payload.profileStatus
   };
 
-  if (req.user.profileStatus === "INCOMPLETE") {
+  if (isProfileCompleteCheck && req.user.profileStatus === "INCOMPLETE") {
     throw new ForbiddenError("Complete your profile first");
   }
 

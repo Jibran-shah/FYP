@@ -3,6 +3,8 @@ import { MediaFile } from "../../../models/MediaFile.models.js";
 import { uploadToStorage, deleteFromStorage, generateFileName, getFileFormat } from "../../../utils/storage.utils.js"; 
 import { InternalServerError, BadRequestError, ConflictError, NotFoundError, UnauthorizedError } from "../../../errors/Http.error.js";
 import crypto from "crypto"
+import { truncate } from "fs/promises";
+import { logger } from "../../../config/logger.js";
 
 
 const runInTransaction = async (fn) => {
@@ -24,17 +26,18 @@ export const createMediaFile = async ({ file, uploadedBy }, session = null) => {
   if (!file) throw new BadRequestError("No file provided");
 
   const _id = new mongoose.Types.ObjectId();
-  const fileName = generateFileName({ originalName: file.originalname });
+  const fileName = generateFileName({ originalName: file.originalName });
   const hash = crypto.createHash("sha256").update(file.buffer).digest("hex");
 
   let uploaded;
 
   const execute = async (session) => {
     try {
+
       uploaded = await uploadToStorage(
         file.buffer,
         fileName,
-        file.mimetype,
+        file.mimeType,
         uploadedBy
       );
 
@@ -45,8 +48,8 @@ export const createMediaFile = async ({ file, uploadedBy }, session = null) => {
           storageKey: uploaded.storageKey,
           url: uploaded.url,
           fileName,
-          mimeType: file.mimetype,
-          format: getFileFormat(file.mimetype),
+          mimeType: file.mimeType,
+          format: getFileFormat(file.mimeType),
           size: file.size,
           hash,
           uploadedBy,
@@ -61,7 +64,9 @@ export const createMediaFile = async ({ file, uploadedBy }, session = null) => {
       if (uploaded?.storageKey) {
         await deleteFromStorage(uploaded.storageKey);
       }
-      throw err;
+      throw logger.error("failed media file creation",{
+        error:err
+      });
     }
   };
 
@@ -124,10 +129,10 @@ export const getMediaFileById = async (id) => {
 };
 
 
-export const deleteMediaFile = async (id, userId, session = null) => {
+export const deleteMediaFile = async (fileId, userId, session = null) => {
 
   const execute = async (session) => {
-    const mediaFile = await MediaFile.findById(id).session(session);
+    const mediaFile = await MediaFile.findById(fileId).session(session);
 
     if (!mediaFile) throw new NotFoundError("Media file not found");
 
@@ -140,7 +145,7 @@ export const deleteMediaFile = async (id, userId, session = null) => {
     }
 
     await deleteFromStorage(mediaFile.storageKey);
-    await MediaFile.deleteOne({ _id: id }).session(session);
+    await MediaFile.deleteOne({ _id: fileId }).session(session);
   };
 
   return session ? execute(session) : runInTransaction(execute);
@@ -185,7 +190,7 @@ export const bulkMediaDeleteFiles = async (ids, userId, session = null) => {
 };
 
 export const toMediaDTO = (doc) => ({
-  id: doc._id.toString(),
+  id: doc._id,
   provider: doc.provider,
   fileName: doc.fileName,
   url: doc.url,

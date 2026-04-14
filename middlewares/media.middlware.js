@@ -3,7 +3,7 @@ export const mediaContext = ({
   usageType,
   namespace,
   ownerFrom = "user",
-  ownerField = "_id"
+  ownerField = "id"
 }) => {
   return (req, res, next) => {
     try {
@@ -48,7 +48,7 @@ export const mediaContext = ({
 export const strictMediaContext = (config) => {
   return (req, res, next) => {
     if (!req.user) {
-      return res.status(401).json({ message: "Unauthorized" });
+      return res.status(401).json({ message: "user not signed in" });
     }
 
     return mediaContext(config)(req, res, next);

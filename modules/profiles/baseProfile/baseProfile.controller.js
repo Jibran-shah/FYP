@@ -4,8 +4,9 @@ import { asyncHandler } from "../../../utils/asyncHandler.js";
 
 // CREATE
 export const createProfile = asyncHandler(async (req, res) => {
+
   const profile = await profileService.createProfile(
-    req.user._id,
+    req.user.id,
     req.body,
     req.media,
     req.mediaContext

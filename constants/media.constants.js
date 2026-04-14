@@ -6,6 +6,7 @@ export const MEDIA_USAGE_TYPES = [
   "avatar",
   "document",
   "productImage",
+  "profileImage",
   "other"
 ];
 
