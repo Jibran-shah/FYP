@@ -5,7 +5,7 @@ import {
   createProfileSchema,
   updateProfileSchema
 } from "./baseProfile.validation.js";
-import { protect } from "../../../middlewares/auth.middleware.js";
+import { protect, restrictTo } from "../../../middlewares/auth.middleware.js";
 import { upload } from "../../../middlewares/multer.middleware.js";
 import {
   parseMedia,
@@ -16,7 +16,6 @@ import {
 const router = express.Router();
 
 router.use(protect);
-
 
 // ======================
 // CREATE PROFILE
@@ -44,15 +43,13 @@ router.post(
 router.get("/", profileController.getProfile);
 
 
-// ======================
-// UPDATE PROFILE (FILE OR FILE ID)
-// ======================
 router.put(
   "/",
   upload.single("file"),
   parseMedia("file", {
     allowedMimeTypes: ["image/jpeg", "image/png", "image/webp"]
   }),
+  validateFileOrFileId, // 🔥 ADD THIS
   strictMediaContext({
     entity: "profile",
     usageType: "profileImage",

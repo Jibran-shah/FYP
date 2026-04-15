@@ -36,7 +36,11 @@ export const updateProfileSchema = Joi.object({
 
   role: Joi.forbidden(),
   user: Joi.forbidden()
-}).min(1);
+})
+  .or("fileId", "fullName", "phone", "bio", "country", "city", "address")
+  .messages({
+    "object.missing": "At least one field must be provided"
+  });
 
 
 export const getProfilesQuerySchema = Joi.object({
@@ -47,3 +51,25 @@ export const getProfilesQuerySchema = Joi.object({
   page: Joi.number().integer().min(1).optional(),
   limit: Joi.number().integer().min(1).max(100).optional()
 });
+
+
+export const validateFileOrFileId = (req, res, next) => {
+  const hasFile = !!req.file;
+  const hasFileId = !!req.body.fileId;
+
+  if (hasFile && hasFileId) {
+    return res.status(400).json({
+      success: false,
+      message: "Provide either file or fileId, not both"
+    });
+  }
+
+  if (!hasFile && !hasFileId) {
+    return res.status(400).json({
+      success: false,
+      message: "Either file or fileId is required"
+    });
+  }
+
+  next();
+};

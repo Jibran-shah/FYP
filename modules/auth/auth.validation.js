@@ -80,3 +80,91 @@ export const loginSchema = Joi.object({
 .messages({
   "object.missing": "Either email or username is required for login",
 });
+
+
+
+export const forgotPasswordSchema = Joi.object({
+  email: Joi.string()
+    .email()
+    .required()
+    .messages({
+      "string.base": "Email must be a string",
+      "string.empty": "Email is required",
+      "string.email": "Email must be valid",
+      "any.required": "Email is required",
+    }),
+});
+
+
+export const verifyResetOtpSchema = Joi.object({
+  email: Joi.string()
+    .email()
+    .required(),
+
+  otp: Joi.string()
+    .length(6)
+    .pattern(/^[0-9]+$/)
+    .required()
+    .messages({
+      "string.length": "OTP must be 6 digits",
+      "string.pattern.base": "OTP must contain only numbers",
+      "any.required": "OTP is required",
+    }),
+});
+
+
+export const resetPasswordSchema = Joi.object({
+  resetToken: Joi.string()
+    .required()
+    .messages({
+      "string.empty": "Reset token is required",
+      "any.required": "Reset token is required",
+    }),
+
+  newPassword: Joi.string()
+    .min(6)
+    .max(128)
+    .required()
+    .messages({
+      "string.min": "Password must be at least 6 characters",
+      "string.max": "Password must be less than 128 characters",
+      "any.required": "New password is required",
+    }),
+});
+
+
+
+export const resendResetOtpSchema = Joi.object({
+  email: Joi.string()
+    .email()
+    .required()
+    .messages({
+      "string.email": "Email must be valid",
+      "any.required": "Email is required",
+    }),
+});
+
+
+export const verifyEmailSchema = Joi.object({
+  userId: Joi.string()
+    .required()
+    .messages({
+      "any.required": "User ID is required",
+    }),
+
+  token: Joi.string()
+    .required()
+    .messages({
+      "any.required": "Verification token is required",
+    }),
+});
+
+
+
+export const resendVerifyEmailSchema = Joi.object({
+  userId: Joi.string()
+    .required()
+    .messages({
+      "any.required": "User ID is required",
+    }),
+});
