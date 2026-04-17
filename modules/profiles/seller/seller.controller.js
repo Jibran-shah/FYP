@@ -3,7 +3,7 @@ import { NotFoundError } from "../../../errors/Http.error.js";
 
 // CREATE
 export const createProductSeller = async (req, res) => {
-  const userId = req.user?._id;
+  const userId = req.user?.id;
 
   const seller = await productSellerService.createSeller({
     ...req.body,

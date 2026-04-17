@@ -37,8 +37,6 @@ const productSellerSchema = new mongoose.Schema(
       type: Number,
       default: 0
     },
-    
-    // ⭐ RATING SYSTEM (efficient O(1) updates)
 
     ratingSum: {
       type: Number,

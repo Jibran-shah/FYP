@@ -9,28 +9,41 @@ import {mediaService } from "../../media/media.service.js";
 
 export const createSeller = async ({
   user,
+  shopLogo,
   shopName,
   shopDescription,
   media,
   mediaContext
 }) => {
+
+
+  console.log("start")
+
   const session = await mongoose.startSession();
   session.startTransaction();
 
   try {
+
     if (!user) throw new BadRequestError("User is required");
 
     const existing = await ProductSeller.findOne({ user }).session(session);
+
     if (existing) {
       throw new BadRequestError("User already has a seller profile");
     }
 
+
+    console.log("before resolve");
+
     const shopLogoAssetId = await mediaService.resolve({
       file: media?.file,
+      fileId:shopLogo,
       context: mediaContext,
       userId: mediaContext.owner,
       session
     });
+
+    console.log("after resolve")
 
     const seller = await ProductSeller.create(
       [{
@@ -41,6 +54,8 @@ export const createSeller = async ({
       }],
       { session }
     );
+
+    console.log("hit end")
 
     await session.commitTransaction();
     return seller[0];

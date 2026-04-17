@@ -11,6 +11,10 @@ import {
 } from "./provider.controller.js";
 import { validate } from "../../../middlewares/validate.middleware.js";
 import { bulkDeleteServiceProviderSchema, createServiceProviderSchema, serviceProviderIdParamSchema, updateServiceProviderSchema } from "./provider.validation.js";
+import { protect } from "../../../middlewares/auth.middleware.js";
+
+
+router.use(protect())
 
 // 🔥 STATIC ROUTES FIRST
 router.post("/bulk-delete",validate(bulkDeleteServiceProviderSchema) , bulkDeleteServiceProviders);

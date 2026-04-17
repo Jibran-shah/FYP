@@ -6,38 +6,40 @@ import { UnauthorizedError, ForbiddenError } from "../errors/index.js";
  * Reads access token from Authorization header: Bearer <token>
  * Attaches decoded payload to req.user
  */
-
-
-//TODO change it so users with no profile are forced to create profile
-
 export const protect = (options = {}) => {
-  
   const { isProfileCompleteCheck = true } = options;
 
   return (req, res, next) => {
-    const token = req.cookies.accessToken;
-    if (!token) throw new UnauthorizedError("Access token missing");
+    try {
+      const token =
+        req.cookies?.accessToken ||
+        req.headers?.authorization?.split(" ")[1];
 
-    const payload = verifyAccessToken(token);
+      if (!token) {
+        return next(new UnauthorizedError("Access token missing"));
+      }
 
-    req.user = {
-      id: payload.userId,
-      role: payload.role,
-      profileStatus: payload.profileStatus
-    };
+      const payload = verifyAccessToken(token);
 
-    if (
-      isProfileCompleteCheck &&
-      req.user.profileStatus === "INCOMPLETE"
-    ) {
-      throw new ForbiddenError("Complete your profile first");
+      req.user = {
+        id: payload.userId,
+        role: payload.role,
+        profileStatus: payload.profileStatus
+      };
+
+      if (
+        isProfileCompleteCheck &&
+        req.user.profileStatus === "INCOMPLETE"
+      ) {
+        return next(new ForbiddenError("Complete your profile first"));
+      }
+
+      return next();
+    } catch (err) {
+      return next(err);
     }
-
-    next();
   };
 };
-
-
 
 /**
  * Role-based authorization middleware
@@ -46,7 +48,7 @@ export const protect = (options = {}) => {
 export const restrictTo = (...roles) => {
   return (req, res, next) => {
     if (!req.user || !roles.includes(req.user.role)) {
-      throw new ForbiddenError("Access forbidden: insufficient permissions");
+      return next(new ForbiddenError("Access forbidden: insufficient permissions"));
     }
     next();
   };

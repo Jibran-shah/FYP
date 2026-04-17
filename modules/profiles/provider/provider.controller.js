@@ -14,11 +14,11 @@ import {
 // ------------------------
 export const createServiceProvider = async (req, res) => {
     const payload = req.body;
-    const userId = req.user ? req.user._id : null;
+    const userId = req.user?.id;
 
     const serviceProvider = await createProviderService({
       ...payload,
-      user: userId || payload.user
+      user: userId
     });
 
     return res.status(201).json({ serviceProvider });

@@ -1,5 +1,5 @@
 import express from "express";
-import { upload } from "../../../middlewares/multer.middleware.js";
+import { requireUpload } from "../../../middlewares/multer.middleware.js";
 import {
   createMediaFile,
   getAllMediaFiles,
@@ -19,7 +19,7 @@ const router = express.Router();
 // CREATE
 router.post("/",
   protect, 
-  upload.single("file"),
+  requireUpload("file"),
   parseMedia("file"), 
   asyncHandler(createMediaFile)
 );

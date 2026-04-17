@@ -23,19 +23,19 @@ export const createProductSellerSchema = Joi.object({
 export const updateProductSellerSchema = Joi.object({
   shopName: Joi.string().trim().min(1).max(100).optional(),
 
-  // CASE 1: reuse existing MediaAsset
+  // CASE 1: reuse existing file
   shopLogo: Joi.string().custom(objectId).optional(),
-
-  // CASE 2: explicitly pass fileId (alternative update method)
-  fileId: Joi.string().custom(objectId).optional(),
 
   shopDescription: Joi.string().max(1000).allow("", null).optional(),
 
   isApproved: Joi.forbidden(),
 
   rating: Joi.forbidden(),
+  
   ratingCount: Joi.forbidden(),
+
   totalProducts: Joi.forbidden()
+
 }).min(1);
 
 

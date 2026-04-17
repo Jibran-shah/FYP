@@ -6,8 +6,8 @@ import {
   updateProfileSchema,
   validateFileOrFileId
 } from "./baseProfile.validation.js";
-import { protect, restrictTo } from "../../../middlewares/auth.middleware.js";
-import { upload } from "../../../middlewares/multer.middleware.js";
+import { protect} from "../../../middlewares/auth.middleware.js";
+import { optionalUpload} from "../../../middlewares/multer.middleware.js";
 import {
   parseMedia,
   strictMediaContext
@@ -25,7 +25,7 @@ router.use(protect({
 // ======================
 router.post(
   "/",
-  upload.single("file"),
+  optionalUpload("file"),
   parseMedia("file", {
     allowedMimeTypes: ["image/jpeg", "image/png", "image/webp"]
   }),
@@ -42,7 +42,7 @@ router.post(
 
 router.put(
   "/",
-  upload.single("file"),
+  optionalUpload("file"),
   parseMedia("file", {
     allowedMimeTypes: ["image/jpeg", "image/png", "image/webp"]
   }),

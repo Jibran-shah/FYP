@@ -1,3 +1,5 @@
+import { BadRequestError, UnauthorizedError } from "../errors/index.js";
+
 export const mediaContext = ({
   entity,
   usageType,
@@ -8,7 +10,6 @@ export const mediaContext = ({
   return (req, res, next) => {
     try {
       let owner = null;
-
       if (ownerFrom === "user") {
         owner = req.user?.[ownerField];
       } else if (ownerFrom === "params") {
@@ -18,10 +19,7 @@ export const mediaContext = ({
       }
 
       if (!owner) {
-        return res.status(400).json({
-          success: false,
-          message: "Media context owner not found"
-        });
+        return next(new BadRequestError("Media context owner not found"));
       }
 
       req.mediaContext = {
@@ -48,9 +46,8 @@ export const mediaContext = ({
 export const strictMediaContext = (config) => {
   return (req, res, next) => {
     if (!req.user) {
-      return res.status(401).json({ message: "user not signed in" });
+      return next(new UnauthorizedError("user not signed in"));
     }
-
     return mediaContext(config)(req, res, next);
   };
 };
@@ -83,26 +80,17 @@ export const parseMedia = (fieldName = "file", options = {}) => {
 
     // 2. strict field validation
     if (file.fieldname !== fieldName) {
-      return res.status(400).json({
-        success: false,
-        message: `Invalid file field. Expected '${fieldName}'`
-      });
+      return next(new BadRequestError(`Invalid file field. Expected '${fieldName}'`))
     }
 
     // 3. size check
     if (file.size > maxSize) {
-      return res.status(400).json({
-        success: false,
-        message: "File too large"
-      });
+      return next( new BadRequestError("File too large"));
     }
 
     // 4. mime validation
     if (!allowedMimeTypes.includes(file.mimetype)) {
-      return res.status(400).json({
-        success: false,
-        message: "Unsupported file type"
-      });
+      return next( new BadRequestError("Unsupported file type"))
     }
 
     // 5. attach normalized file

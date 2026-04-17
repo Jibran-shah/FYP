@@ -14,13 +14,9 @@ import providerProfileRoutes from "./modules/profiles/provider/provider.routes.j
 import { requestIdMiddleware } from "./middlewares/requestId.middleware.js";
 import { httpLogger } from "./middlewares/httpLogger.middleware.js";
 import {logger} from "./config/logger.js";
-import { EMAIL_CONFIG } from "./config/email.config.js";
 
 const app = express();
 const PORT = process.env.PORT || 5000;
-
-
-console.log(EMAIL_CONFIG);
 
 const startServer = async () => {
   try {
