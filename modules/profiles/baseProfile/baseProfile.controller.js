@@ -16,12 +16,26 @@ export const createProfile = asyncHandler(async (req, res) => {
 });
 
 // GET
-export const getProfile = asyncHandler(async (req, res) => {
-  const profile = await profileService.getProfileByUser(req.user._id);
+export const getProfileById = asyncHandler(async (req, res) => {
+  const {id} = req.params;
+  const profile = await profileService.getProfileById(id);
   if (!profile) throw new NotFoundError("Profile not found");
   res.json({ success: true, data: profile });
 });
 
+export const getProfileByUser = asyncHandler(async (req, res) => {
+  const profile = await profileService.getProfileByUser(req.user.id);
+  if (!profile) throw new NotFoundError("Profile not found");
+  res.json({ success: true, data: profile });
+});
+
+export const getProfilesByQuery = async (req,res)=>{
+  const filter = req.query;
+
+  const {data,pagination} = await profileService.getProfilesByQuery(filter);
+
+  return res.status(200).json({ success:true, data ,pagination });
+};
 
 export const updateProfile = asyncHandler(async (req, res) => {
   const updated = await profileService.updateProfile(
@@ -37,8 +51,6 @@ export const updateProfile = asyncHandler(async (req, res) => {
 // DELETE
 export const deleteProfile = asyncHandler(async (req, res) => {
   const deleted = await profileService.deleteProfile(req.user._id);
-
   if (!deleted) throw new NotFoundError("Profile not found");
-
   res.json({ success: true, message: "Profile deleted successfully" });
 });

@@ -7,8 +7,9 @@ import {
 import { logger } from "../config/logger.js";
 
 export const errorHandler = (err, req, res, next) => {
-  logger.error(err.stack);
 
+  logger.error(err.stack);
+  
   let error = err;
 
   /*

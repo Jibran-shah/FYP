@@ -1,53 +1,73 @@
-import { redisClient } from "../config/redis.js";
 import { v4 as uuidv4 } from "uuid";
 
-/**
- * Save a refresh token in Redis
- * @param {string} userId - MongoDB user id
- * @param {string} sessionId - unique session id (UUID or random string)
- * @param {string} refreshToken - JWT refresh token
- * @param {number} ttl - time to live in seconds
- */
-export const saveSession = async (userId, sessionId, refreshToken, ttl) => {
-  const key = `refresh:${userId}:${sessionId}`;
-  await redisClient.set(key, refreshToken, { EX: ttl });
-};
+import {
+  getOrNull,
+  setWithTTL,
+  deleteKey,
+  addToSet,
+  removeFromSet,
+  getSetMembers,
+  deleteMany
+} from "./redis.utils.js";
 
-/**
- * Get a refresh token from Redis by userId + sessionId
- */
-export const getSession = async (userId, sessionId) => {
-  const key = `refresh:${userId}:${sessionId}`;
-  const token = await redisClient.get(key);
-  return token;
-};
+import { RedisError } from "../errors/Redis.error.js";
+import { normalizeUserId } from "./user.utils.js";
 
-/**
- * Delete a single session by userId + sessionId
- */
-export const deleteSession = async (userId, sessionId) => {
-  const key = `refresh:${userId}:${sessionId}`;
-  await redisClient.del(key);
-};
+/* ================= KEYS ================= */
 
-/**
- * Delete all sessions of a user
- * Useful for logout all devices
- */
-export const deleteAllSessions = async (userId) => {
-  const pattern = `refresh:${userId}:*`;
-  const keys = [];
-  // Scan all keys for this user
-  for await (const key of redisClient.scanIterator({ MATCH: pattern })) {
-    keys.push(key);
+const sessionKey = (userId, sessionId) =>
+  `refresh:${normalizeUserId(userId)}:${sessionId}`;
+
+const userSessionsKey = (userId) =>
+  `refresh:${normalizeUserId(userId)}`;
+
+/* ================= SESSION ================= */
+
+export const saveSession = async (userId, sessionId, token, ttl) => {
+  try {
+    await Promise.all([
+      setWithTTL(sessionKey(userId, sessionId), token, ttl),
+      addToSet(userSessionsKey(userId), sessionId),
+    ]);
+  } catch (err) {
+    throw new RedisError({ message: "Save session failed", cause: err });
   }
-  if (keys.length > 0) await redisClient.del(...keys);
 };
 
+export const getSession = (userId, sessionId) =>
+  getOrNull(sessionKey(userId, sessionId));
 
-/**
- * Generate a unique session id (UUID v4)
- */
-export const generateSessionId = () => {
-  return uuidv4();
+export const deleteSession = async (userId, sessionId) => {
+  try {
+    await Promise.all([
+      deleteKey(sessionKey(userId, sessionId)),
+      removeFromSet(userSessionsKey(userId), sessionId),
+    ]);
+  } catch (err) {
+    throw new RedisError({ message: "Delete session failed", cause: err });
+  }
 };
+
+export const deleteAllSessions = async (userId) => {
+  try {
+    const setKey = userSessionsKey(userId);
+    const sessionIds = await getSetMembers(setKey);
+
+    if (!sessionIds.length) return 0;
+
+    const keys = sessionIds.map(id =>
+      sessionKey(userId, id)
+    );
+
+    await deleteMany([...keys, setKey]);
+
+    return sessionIds.length;
+  } catch (err) {
+    throw new RedisError({
+      message: "Delete all sessions failed",
+      cause: err,
+    });
+  }
+};
+
+export const generateSessionId = () => uuidv4();

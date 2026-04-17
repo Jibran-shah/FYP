@@ -19,8 +19,6 @@ export const createProfile = async (userId, profileData, media, context) => {
       });
 
 
-    console.log(userId);
-
     const [profile] = await Profile.create(
       [
         {
@@ -32,7 +30,6 @@ export const createProfile = async (userId, profileData, media, context) => {
       { session }
     );
 
-    console.log(profile)
     await User.updateOne(
       { _id: userId },
       { profileStatus: "COMPLETE" },
@@ -54,10 +51,14 @@ export const createProfile = async (userId, profileData, media, context) => {
   }
 };
 
-export const getProfileByUser = async (userId) => {
-  return Profile.findOne({ user: userId })
+export const getProfileByUser = async (id) => {
+  return Profile.findOne({user:id})
     .populate("profileImage");
 };
+
+export const getProfileById = async (id)=>{
+  return Profile.findById(id);
+}
 
 export const updateProfile = async (
   userId,

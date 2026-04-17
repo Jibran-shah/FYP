@@ -1,13 +1,16 @@
 import User from "../../models/User.model.js";
 import crypto from "crypto";
-
 import {
   verifyRefreshToken,
   generateAccessToken,
   generateRefreshToken,
-  parseExpiresToSeconds
-} from "../../utils/auth.tokens.js";
-
+  parseExpiresToSeconds,
+  verifyResetToken,
+  generateResetToken,
+  storeResetToken,
+  verifyStoredResetToken,
+  deleteResetToken
+} from "../../utils/token.utils.js";
 import {
   generateSessionId,
   saveSession,
@@ -15,31 +18,26 @@ import {
   deleteAllSessions,
   deleteSession
 } from "../../utils/session.js";
-
 import {
   BadRequestError,
   ConflictError,
   NotFoundError,
   UnauthorizedError
 } from "../../errors/index.js";
-
 import { 
   checkOtpRequestLimit,
   increaseOtpAttempts,
   checkOtpAttempts,
   resetOtpAttempts
  } from "../../utils/otp.utils.js";
-import { 
-  setPasswordResetOtp,
-  getPasswordResetOtp
- } from "../../utils/passwordResetOtp.js";
-import {
-  verifyResetToken,
-  generateResetToken
-} from "../../utils/passwordReset.tokens.js";
+
+ import {
+  setOtp,
+  verifyOtp,
+  deleteOtp
+} from "../../utils/otp.utils.js";
 
 import { emailService } from "../email/email.service.js";
-
 import {
   setEmailVerificationToken,
   getEmailVerificationToken,
@@ -47,10 +45,10 @@ import {
   assertEmailVerified,
   checkEmailVerificationCooldown,
   setEmailVerificationCooldown
-} from "../../utils/auth.email.utils.js";
+} from "../../utils/email.utils.js";
 import { logger } from "../../config/logger.js";
-
-
+import { AUTH_CONFIG } from "../../config/auth.config.js";
+import { emailConfig } from "../../utils/config.utils.js";
 
 /**
  * Register a new user and create session
@@ -80,7 +78,7 @@ export const register = async (userName, email, password) => {
   const accessToken = generateAccessToken(user._id, user.role);
   const refreshToken = generateRefreshToken(user._id, user.role, sessionId);
 
-  const ttl = parseExpiresToSeconds(process.env.JWT_REFRESH_EXPIRES);
+  const ttl = parseExpiresToSeconds(AUTH_CONFIG.REFRESH_TOKEN.EXPIRY);
   await saveSession(user._id.toString(), sessionId, refreshToken, ttl);
 
   // ✅ non-blocking email
@@ -126,7 +124,7 @@ export const login = async (userName,email, password) => {
 
   // 5️⃣ Store refresh token in Redis with TTL
   const ttl = parseExpiresToSeconds(process.env.JWT_REFRESH_EXPIRES);
-  await saveSession(user._id.toString(), sessionId, refreshToken, ttl);
+  await saveSession(user._id, sessionId, refreshToken, ttl);
 
   // 6️⃣ Return data
   return { user, accessToken, refreshToken};
@@ -168,7 +166,7 @@ if (!refreshTokenCookie)
   const newRefreshToken = generateRefreshToken(userId,role, sessionId,profileStatus );
 
   // 4️⃣ Store new refresh token in Redis (rotate token)
-  const ttl = parseExpiresToSeconds(process.env.JWT_REFRESH_EXPIRES);
+  const ttl = parseExpiresToSeconds(AUTH_CONFIG.REFRESH_TOKEN.EXPIRY);
   await saveSession(userId, sessionId, newRefreshToken, ttl);
 
   return {
@@ -176,8 +174,6 @@ if (!refreshTokenCookie)
     refreshToken: newRefreshToken
   };
 };
-
-
 
 
 
@@ -207,117 +203,110 @@ export const logoutAllService = async (refreshTokenCookie) => {
   const {userId} = verifyRefreshToken(refreshTokenCookie);
   await deleteAllSessions(userId);
 };
-
-
-
-/**
- * Start forgot password flow
- */
 export const forgotPasswordService = async (email) => {
   if (!email) throw new BadRequestError("Email is required");
 
-  // 1. check user exists
   const user = await User.findOne({ email });
-  if (!user) return; // prevent email enumeration attack
+  if (!user) return;
 
-  // 2. rate limit OTP requests
-  await checkOtpRequestLimit(email);
+  const userId = user._id.toString();
 
-  // 3. generate OTP
+  await checkOtpRequestLimit(userId);
+
   const otp = Math.floor(100000 + Math.random() * 900000).toString();
 
-  // 4. store OTP in Redis (5 min expiry handled inside function)
-  await setPasswordResetOtp(email, otp);
+  await setOtp(userId, otp);
 
-  await emailService.sendForgotPasswordEmail({to:email,otp,userName:user.userName,userId:user._id});
+  await emailService.sendForgotPasswordEmail({
+    to: email,
+    otp,
+    userName: user.userName,
+    userId,
+  });
 
   return true;
 };
 
-
-
-/**
- * Verify OTP and issue reset token
- */
 export const verifyResetOtpService = async (email, otp) => {
-  if (!email || !otp) throw new Error("Email and OTP required");
+  if (!email || !otp)
+    throw new BadRequestError("Email and OTP required");
 
-  // 1. check attempt limit first
-  await checkOtpAttempts(email);
+  const user = await User.findOne({ email });
+  if (!user) throw new NotFoundError("User not found");
 
-  // 2. get stored OTP
-  const storedOtp = await getPasswordResetOtp(email);
+  const userId = user._id.toString();
 
-  if (!storedOtp) {
-    throw new BadRequestError("OTP expired");
-  }
+  await checkOtpAttempts(userId);
 
-  // 3. validate OTP
-  if (storedOtp !== otp) {
-    await increaseOtpAttempts(email);
+  const isValid = await verifyOtp(userId, otp);
+
+  if (!isValid) {
+    await increaseOtpAttempts(userId);
     throw new UnauthorizedError("Invalid OTP");
   }
 
-  // 4. success → cleanup attempts + otp
-  await resetOtpAttempts(email);
+  await deleteOtp(userId);
+  await resetOtpAttempts(userId);
 
-  // 5. generate reset token (JWT)
-  const user = await User.findOne({ email });
+  const { token } = generateResetToken(userId, email);
 
-  if (!user) throw new NotFoundError("User not found");
+  await storeResetToken(userId, token);
 
-  const resetToken = generateResetToken(user._id, email);
-
-  return { resetToken };
+  return { resetToken: token };
 };
 
-
-
-
-/**
- * Reset user password
- */
 export const resetPasswordService = async (resetToken, newPassword) => {
   if (!resetToken || !newPassword) {
-    throw new BadRequestError("Token and new password required");
+    throw new BadRequestError("Token and password required");
   }
 
-  // 1. verify reset token
   const decoded = verifyResetToken(resetToken);
 
-  const { userId } = decoded;
+  if (!decoded || !decoded.userId) {
+    throw new UnauthorizedError("Invalid reset token payload");
+  }
 
-  // 2. find user
+  const userId = decoded.userId.toString();
+  const isValid = await verifyStoredResetToken(userId, resetToken);
+
+  if (!isValid) {
+    throw new UnauthorizedError("Invalid or expired reset token");
+  }
+
   const user = await User.findById(userId);
   if (!user) throw new NotFoundError("User not found");
 
   user.password = newPassword;
   await user.save();
 
-  // 4. SECURITY: invalidate all sessions
+  await deleteResetToken(userId);
   await deleteAllSessions(userId);
 
   return true;
 };
 
-
-/**
- * Resend OTP
- */
 export const resendResetOtpService = async (email) => {
-  if (!email) throw new Error("Email required");
+  if (!email) throw new BadRequestError("Email required");
 
   const user = await User.findOne({ email });
-  if (!user) return;
+  if (!user) throw new NotFoundError("Email not registerred with any account");
 
-  // same rate limiter as forgot password
-  await checkOtpRequestLimit(email);
+  const userId = user._id.toString();
+
+  await deleteOtp(userId);
+
+  await checkOtpRequestLimit(userId);
 
   const otp = Math.floor(100000 + Math.random() * 900000).toString();
 
-  await setPasswordResetOtp(email, otp);
+  await setOtp(userId, otp);
 
-  await emailService.sendForgotPasswordEmail({to:email,otp,userName:user.userName,userId:user._id})
+  await emailService.sendForgotPasswordEmail({
+    to: email,
+    otp,
+    userName: user.userName,
+    userId,
+  });
 
   return true;
 };
@@ -358,9 +347,9 @@ export const sendVerifyEmailService = async (userId) => {
 
   const token = crypto.randomBytes(32).toString("hex");
 
-  await setEmailVerificationToken(userId, token, 1800);
+  await setEmailVerificationToken(userId, token);
 
-  await setEmailVerificationCooldown(userId, 60);
+  await setEmailVerificationCooldown(userId);
 
   const link = `${process.env.FRONTEND_URL}/api/auth/verify-email?userId=${userId}&token=${token}`;
 
@@ -370,8 +359,6 @@ export const sendVerifyEmailService = async (userId) => {
     link
   });
 };
-
-
 
 
 
@@ -385,8 +372,8 @@ export const resendVerifyEmailService = async (userId) => {
 
   const token = crypto.randomBytes(32).toString("hex");
 
-  await setEmailVerificationToken(userId, token, 1800);
-  await setEmailVerificationCooldown(userId, 60);
+  await setEmailVerificationToken(userId, token, emailVerifyTTL());
+  await setEmailVerificationCooldown(userId, emailVerifyCooldown());
 
   const link = `${process.env.FRONTEND_URL}/verify-email?userId=${userId}&token=${token}`;
 

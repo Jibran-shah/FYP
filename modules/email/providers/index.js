@@ -2,9 +2,6 @@ import { smtpProvider } from "./smtp.provider.js";
 
 const providers = {
   smtp: smtpProvider
-  // future:
-  // resend: resendProvider,
-  // sendgrid: sendgridProvider
 };
 
 export const getEmailProvider = () => {

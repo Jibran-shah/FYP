@@ -4,21 +4,21 @@ import {
   register,
   refreshTokenService,
   login,
-  verifyEmailService,          // ✅ added
-  resendVerifyEmailService,     // ✅ added
+  verifyEmailService,          
+  resendVerifyEmailService, 
   forgotPasswordService,
   resendResetOtpService,
   verifyResetOtpService,
   resetPasswordService
 } from "./auth.service.js";
-
 import { 
   setCookie,
   clearCookie,
-  parseExpiresToSeconds,
-} from "../../utils/index.js";
-
+} from "../../utils/cookie.js";
+import { parseExpiresToSeconds } from "../../utils/token.utils.js";
 import { InvalidTokenError, UnauthorizedError } from "../../errors/index.js";
+import { AUTH_CONFIG } from "../../config/auth.config.js";
+import { tokenConfig } from "../../utils/config.utils.js";
 
 
 /**
@@ -29,15 +29,17 @@ export const registerUser = async (req, res) => {
 
   const { user, accessToken, refreshToken } = await register(userName, email, password);
 
-  const refreshTtlSeconds = parseExpiresToSeconds(process.env.JWT_REFRESH_EXPIRES);
-  setCookie(res, "refreshToken", refreshToken, refreshTtlSeconds);
+  const {refresh,access} = tokenConfig();
 
-  const accessTtlSeconds = parseExpiresToSeconds(process.env.JWT_ACCESS_EXPIRES);
-  setCookie(res, "accessToken", accessToken, accessTtlSeconds);
+  const refreshTtlSeconds = parseExpiresToSeconds(refresh.expiry);
+  setCookie(res, refresh.cookieName, refreshToken, refreshTtlSeconds);
+
+  const accessTtlSeconds = parseExpiresToSeconds(access.expiry);
+  setCookie(res, access.cookieName, accessToken, accessTtlSeconds);
 
   res.status(201).json({
     success: true,
-    message: "User registered successfully. Please verify your email.", // ✅ updated message
+    message: "User registered successfully. Verification email sent.", // ✅ updated message
     data: {
       userId:user._id,
       userName,
@@ -56,11 +58,13 @@ export const loginUser = async (req, res) => {
 
   const { user, accessToken, refreshToken } = await login(userName, email, password);
 
-  const refreshTtlSeconds = parseExpiresToSeconds(process.env.JWT_REFRESH_EXPIRES);
-  setCookie(res, "refreshToken", refreshToken, refreshTtlSeconds);
+  const {refresh,access} = tokenConfig();
 
-  const accessTtlSeconds = parseExpiresToSeconds(process.env.JWT_ACCESS_EXPIRES);
-  setCookie(res, "accessToken", accessToken, accessTtlSeconds);
+  const refreshTtlSeconds = parseExpiresToSeconds(refresh.expiry);
+  setCookie(res, refresh.cookieName, refreshToken, refreshTtlSeconds);
+
+  const accessTtlSeconds = parseExpiresToSeconds(access.expiry);
+  setCookie(res, access.cookieName, accessToken, accessTtlSeconds);
 
   res.status(200).json({
     success: true,
@@ -85,11 +89,13 @@ export const refreshToken = async (req, res) => {
 
   const { accessToken, refreshToken } = await refreshTokenService(refreshTokenCookie);
 
-  const refreshTtlSeconds = parseExpiresToSeconds(process.env.JWT_REFRESH_EXPIRES);
-  setCookie(res, "refreshToken", refreshToken, refreshTtlSeconds);
+  const {refresh,access} = tokenConfig();
 
-  const accessTtlSeconds = parseExpiresToSeconds(process.env.JWT_ACCESS_EXPIRES);
-  setCookie(res, "accessToken", accessToken, accessTtlSeconds);
+  const refreshTtlSeconds = parseExpiresToSeconds(refresh.expiry);
+  setCookie(res, refresh.cookieName, refreshToken, refreshTtlSeconds);
+
+  const accessTtlSeconds = parseExpiresToSeconds(access.expiry);
+  setCookie(res, access.cookieName, accessToken, accessTtlSeconds);
 
   res.json({
     success: true,
@@ -149,12 +155,10 @@ export const forgotPassword = async (req, res) => {
 
 export const verifyResetOtp = async (req, res) => {
   const { email, otp } = req.body;
-
   const { resetToken } = await verifyResetOtpService(email, otp);
-
-  const resetTtlSeconds = parseExpiresToSeconds(process.env.JWT_RESET_EXPIRES)
-  setCookie(res, "resetToken", resetToken, resetTtlSeconds);
-
+  const {reset} = tokenConfig()
+  const resetTtlSeconds = parseExpiresToSeconds(reset.expiry)
+  setCookie(res, reset.cookieName, resetToken, resetTtlSeconds);
   res.status(200).json({
     success: true,
     message: "OTP verified successfully"
@@ -163,9 +167,17 @@ export const verifyResetOtp = async (req, res) => {
 
 
 export const resetPassword = async (req, res) => {
-  const { resetToken, newPassword } = req.body;
+
+  const resetToken = req.cookies?.resetToken;
+  const { newPassword } = req.body;
+
+  if (!resetToken) {
+    throw new InvalidTokenError("Reset token missing");
+  }
 
   await resetPasswordService(resetToken, newPassword);
+
+  clearCookie(res, "resetToken"); // 🔥 IMPORTANT SECURITY STEP
 
   res.status(200).json({
     success: true,
@@ -175,6 +187,7 @@ export const resetPassword = async (req, res) => {
 
 
 export const resendResetOtp = async (req, res) => {
+
   const { email } = req.body;
 
   await resendResetOtpService(email);
@@ -193,7 +206,7 @@ export const resendResetOtp = async (req, res) => {
  * Example: GET /verify-email?token=abc123
  */
 export const verifyEmail = async (req, res) => {
-  const { userId,token } = req.query;
+  const { userId, token } = req.query;
 
   if (!token) {
     throw new InvalidTokenError("Verification token missing");

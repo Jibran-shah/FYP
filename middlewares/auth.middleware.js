@@ -1,4 +1,4 @@
-import { verifyAccessToken } from "../utils/index.js";
+import { verifyAccessToken } from "../utils/token.utils.js";
 import { UnauthorizedError, ForbiddenError } from "../errors/index.js";
 
 /**
@@ -10,27 +10,31 @@ import { UnauthorizedError, ForbiddenError } from "../errors/index.js";
 
 //TODO change it so users with no profile are forced to create profile
 
+export const protect = (options = {}) => {
+  
+  const { isProfileCompleteCheck = true } = options;
 
-export const protect = (req, res, next) => {
-  const token = req.cookies.accessToken;
-  if (!token)
-    throw new UnauthorizedError("Access token missing");
+  return (req, res, next) => {
+    const token = req.cookies.accessToken;
+    if (!token) throw new UnauthorizedError("Access token missing");
 
-  // Verify token
-  const payload = verifyAccessToken(token);
+    const payload = verifyAccessToken(token);
 
-  // Attach user info to request
-  req.user = {
-    id: payload.userId,
-    role: payload.role,
-    profileStatus: payload.profileStatus
+    req.user = {
+      id: payload.userId,
+      role: payload.role,
+      profileStatus: payload.profileStatus
+    };
+
+    if (
+      isProfileCompleteCheck &&
+      req.user.profileStatus === "INCOMPLETE"
+    ) {
+      throw new ForbiddenError("Complete your profile first");
+    }
+
+    next();
   };
-
-  if (isProfileCompleteCheck && req.user.profileStatus === "INCOMPLETE") {
-    throw new ForbiddenError("Complete your profile first");
-  }
-
-  next();
 };
 
 

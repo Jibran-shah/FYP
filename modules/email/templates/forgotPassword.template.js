@@ -12,7 +12,7 @@ export const forgotPasswordTemplate = ({ otp, userName }) => {
     <h2>Hello ${safeName},</h2>
     <p>You requested a password reset.</p>
 
-    this is the otp${otp} 
+    rest password otp is " ${otp} "
 
     <p>don't share this with anyone</p>
     <p>If you didn't request this, ignore this email.</p>

@@ -1,69 +1,83 @@
-import { redisClient } from "../config/redis.js";
-import { InvalidTokenError } from "../errors/index.js";
-import { InternalServerError } from "../errors/index.js";
+import {
+  buildKey,
+  storeHashed,
+  verifyHashed,
+  deleteKey,
+  incrementWithTTL,
+  getOrNull
+} from "./redis.utils.js";
 
+import {
+  OtpTooManyAttemptsError,
+  OtpRequestLimitError,
+} from "../errors/Otp.error.js";
 
-/**
- * Increase OTP attempt counter
- */
-export const increaseOtpAttempts = async (email) => {
-  const key = `otp_attempts:${email}`;
+import { normalizeUserId } from "./user.utils.js";
+import { otpConfig } from "./config.utils.js";
 
-  const attempts = await redisClient.incr(key);
-
-  // first attempt sets expiry
-  if (attempts === 1) {
-    await redisClient.expire(key, 300); // 5 min window
-  }
-
-  return attempts;
+const PREFIX = {
+  otp: "auth:otp",
+  attempts: "auth:otp_attempts",
+  requests: "auth:otp_req",
 };
 
-/**
- * Check if OTP attempts exceeded
- */
-export const checkOtpAttempts = async (
-  email,
-  maxAttempts = 5
-) => {
-  const key = `otp_attempts:${email}`;
+const key = (type, userId) =>
+  buildKey(PREFIX[type], normalizeUserId(userId));
 
-  const attempts = await redisClient.get(key);
+/* ================= OTP ================= */
 
-  if (attempts && parseInt(attempts) >= maxAttempts) {
-    throw new InvalidTokenError(
-      "Too many OTP attempts. Try again later."
-    );
+export const setOtp = async (userId, otp) => {
+  const { ttl } = otpConfig();
+
+  await storeHashed({
+    key: key("otp", userId),
+    value: otp,
+    ttl,
+  });
+};
+
+export const verifyOtp = (userId, otp) =>
+  verifyHashed({
+    key: key("otp", userId),
+    value: otp,
+  });
+
+export const deleteOtp = (userId) =>
+  deleteKey(key("otp", userId));
+
+/* ================= ATTEMPTS ================= */
+
+export const checkOtpAttempts = async (userId) => {
+  const { maxAttempts } = otpConfig();
+
+  const count = parseInt(await getOrNull(key("attempts", userId)) || "0");
+
+  if (count >= maxAttempts) {
+    throw new OtpTooManyAttemptsError({ userId, count });
   }
 };
 
-/**
- * Reset attempts after success
- */
-export const resetOtpAttempts = async (email) => {
-  await redisClient.del(`otp_attempts:${email}`);
+export const increaseOtpAttempts = (userId) => {
+  const { attemptWindow } = otpConfig();
+  return incrementWithTTL(key("attempts", userId), attemptWindow);
 };
 
+export const resetOtpAttempts = (userId) =>
+  deleteKey(key("attempts", userId));
 
-/**
- * Limits how often OTP can be requested
- */
-export const checkOtpRequestLimit = async (
-  email,
-  limit = 3,
-  windowSec = 600 // 10 minutes
-) => {
-  const key = `otp_req:${email}`;
+/* ================= REQUEST LIMIT ================= */
 
-  const current = await redisClient.incr(key);
+export const checkOtpRequestLimit = async (userId) => {
+  const { requestLimit, requestWindow } = otpConfig();
 
-  if (current === 1) {
-    await redisClient.expire(key, windowSec);
+  const count = await incrementWithTTL(
+    key("requests", userId),
+    requestWindow
+  );
+
+  if (count > requestLimit) {
+    throw new OtpRequestLimitError({ userId, count });
   }
 
-  if (current > limit) {
-    throw new InternalServerError(
-      "Too many OTP requests. Try again later."
-    );
-  }
+  return count;
 };

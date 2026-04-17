@@ -3,7 +3,8 @@ import * as profileController from "./baseProfile.controller.js";
 import { validate } from "../../../middlewares/validate.middleware.js";
 import {
   createProfileSchema,
-  updateProfileSchema
+  updateProfileSchema,
+  validateFileOrFileId
 } from "./baseProfile.validation.js";
 import { protect, restrictTo } from "../../../middlewares/auth.middleware.js";
 import { upload } from "../../../middlewares/multer.middleware.js";
@@ -15,7 +16,9 @@ import {
 
 const router = express.Router();
 
-router.use(protect);
+router.use(protect({
+  isProfileCompleteCheck:false
+}));
 
 // ======================
 // CREATE PROFILE
@@ -35,12 +38,6 @@ router.post(
   validate(createProfileSchema),
   profileController.createProfile
 );
-
-
-// ======================
-// GET PROFILE
-// ======================
-router.get("/", profileController.getProfile);
 
 
 router.put(
@@ -65,5 +62,11 @@ router.put(
 // DELETE
 // ======================
 router.delete("/", profileController.deleteProfile);
+
+router.get("/byUser", profileController.getProfileByUser);
+
+router.get("/:id", profileController.getProfileById);
+
+router.get("/",profileController.getProfilesByQuery);
 
 export default router;

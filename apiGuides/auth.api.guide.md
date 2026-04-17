@@ -1,13 +1,11 @@
-# 🔐 Auth API – Frontend Integration Guide
-
-This guide explains how to use the authentication API from the frontend.
+# 🔐 Auth API – Frontend Integration Guide (CLEAN VERSION)
 
 ---
 
 # 🌐 Base URL
 
-```
-http://<your-domain>/api/auth
+```text
+http://localhost:5000/api/auth
 ```
 
 ---
@@ -16,22 +14,23 @@ http://<your-domain>/api/auth
 
 ### ✅ Headers
 
-```
+```text
 Content-Type: application/json
 ```
 
-### ✅ Cookies
+### ✅ Cookies (IMPORTANT)
 
-* Authentication uses **HTTP-only cookies**
-* Always send requests with:
+All authentication is handled using **HTTP-only cookies**.
 
-```
+👉 Always include:
+
+```js
 credentials: "include"
 ```
 
 ---
 
-# 🧾 API Endpoints
+# 🧾 API ENDPOINTS
 
 ---
 
@@ -53,7 +52,7 @@ POST /register
 }
 ```
 
-### Success Response
+### Response
 
 ```json
 {
@@ -96,7 +95,7 @@ OR
 }
 ```
 
-### Success Response
+### Response
 
 ```json
 {
@@ -112,7 +111,7 @@ OR
 
 ---
 
-## 3. Logout
+## 3. Logout (Current Session)
 
 ### Endpoint
 
@@ -122,8 +121,8 @@ POST /logout
 
 ### Notes
 
-* Requires authentication
-* Clears cookies
+* Logs out current device
+* Clears authentication cookies
 
 ---
 
@@ -135,9 +134,13 @@ POST /logout
 POST /logout-all
 ```
 
+### Notes
+
+* Logs out user from all devices
+
 ---
 
-## 5. Refresh Token
+## 5. Refresh Session
 
 ### Endpoint
 
@@ -147,11 +150,12 @@ GET /refresh-token
 
 ### Notes
 
-* Automatically refreshes access token using cookie
+* Automatically refreshes login session using cookies
+* No body required
 
 ---
 
-## 6. Forgot Password
+## 6. Forgot Password (Send OTP)
 
 ### Endpoint
 
@@ -218,8 +222,21 @@ POST /reset-password
 
 ```json
 {
-  "resetToken": "token-from-cookie-or-storage",
   "newPassword": "NewPassword123!"
+}
+```
+
+### Notes
+
+* No token is sent in body
+* Session is handled automatically via cookies
+
+### Response
+
+```json
+{
+  "success": true,
+  "message": "Password reset successfully"
 }
 ```
 
@@ -251,11 +268,10 @@ POST /resend-reset-otp
 GET /verify-email?userId=<id>&token=<token>
 ```
 
-### Example
+### Notes
 
-```
-/verify-email?userId=123&token=abc123
-```
+* Open link from email
+* No request body required
 
 ---
 
@@ -288,59 +304,71 @@ POST /resend-verify-email
 
 ---
 
-# 🔄 Frontend Flow Summary
-
-### 🟢 Registration Flow
-
-1. Register
-2. Show message: "Check email"
-3. User clicks email verification link
+# 🔄 FRONTEND FLOWS
 
 ---
 
-### 🔵 Login Flow
+## 🟢 Register Flow
 
-1. Login
-2. Cookies stored automatically
-3. Redirect to dashboard
-
----
-
-### 🟠 Forgot Password Flow
-
-1. Enter email
-2. Enter OTP
-3. Reset password
+1. Register user
+2. Show: “Check your email”
+3. User clicks verification link
 
 ---
 
-# 🚀 Important Notes
+## 🔵 Login Flow
 
-* Always use `credentials: include`
-* Do NOT store tokens manually (cookies handle it)
-* Handle 401 errors → redirect to login
-* Handle validation errors → show messages from API
+1. Call login API
+2. Cookies are set automatically
+3. Redirect user to dashboard
 
 ---
 
-# 🧠 Example Fetch
+## 🟠 Forgot Password Flow
 
-```js
-fetch("/api/auth/login", {
-  method: "POST",
-  headers: {
-    "Content-Type": "application/json"
-  },
-  credentials: "include",
-  body: JSON.stringify({
-    email: "john@example.com",
-    password: "Password123!"
-  })
-});
+### Step 1
+
+User enters email:
+
+```
+POST /forgot-password
+```
+
+### Step 2
+
+User receives OTP in email
+
+### Step 3
+
+User verifies OTP:
+
+```
+POST /verify-reset-otp
+```
+
+### Step 4
+
+User resets password:
+
+```
+POST /reset-password
 ```
 
 ---
 
-# ✅ Done
+# 🚨 IMPORTANT NOTES
 
-This document should be enough for frontend integration.
+* Always use:
+
+  ```js
+  credentials: "include"
+  ```
+
+* Do NOT manually store tokens
+
+* Do NOT pass tokens manually in requests (handled automatically)
+
+* Handle 401 → redirect to login
+
+* Show API error messages directly to user
+

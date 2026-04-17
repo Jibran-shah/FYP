@@ -73,3 +73,8 @@ export const validateFileOrFileId = (req, res, next) => {
 
   next();
 };
+
+
+export const profileIdSchema = Joi.object({
+  id: Joi.string().custom(objectId).required()
+});

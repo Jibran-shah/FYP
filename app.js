@@ -1,8 +1,8 @@
+import "./env.js";
 import express from "express";
-import dotenv from "dotenv";
 import cookieParser from "cookie-parser";
 import connectDB from "./config/db.js";
-import { connectRedis } from "./config/redis.js";
+import "./config/redis.js";
 import {errorHandler} from "./middlewares/errorHandler.middleware.js"
 import authRoutes from "./modules/auth/auth.routes.js"
 import path from "path"
@@ -13,22 +13,18 @@ import sellerProfileRoutes from "./modules/profiles/seller/seller.routes.js"
 import providerProfileRoutes from "./modules/profiles/provider/provider.routes.js"
 import { requestIdMiddleware } from "./middlewares/requestId.middleware.js";
 import { httpLogger } from "./middlewares/httpLogger.middleware.js";
-import {logger} from "./config/logger.js"
+import {logger} from "./config/logger.js";
+import { EMAIL_CONFIG } from "./config/email.config.js";
 
-
-
-
-
-dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 5000;
 
 
+console.log(EMAIL_CONFIG);
 
 const startServer = async () => {
   try {
     await connectDB();
-    await connectRedis();
     app.use(express.json());
     app.use(cookieParser());
     app.use(requestIdMiddleware);

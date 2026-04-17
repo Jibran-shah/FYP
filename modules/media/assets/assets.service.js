@@ -44,8 +44,6 @@ export const createAsset = async ({
 
     const finalSlug = generateUniqueSlug(slug, title);
 
-    console.log(uploadedBy)
-
     const [mediaAsset] = await MediaAsset.create([{
       title,
       slug: finalSlug,

@@ -185,9 +185,3 @@ fetch("/api/profile", {
   credentials: "include"
 });
 ```
-
----
-
-# ✅ Done
-
-This document covers full profile integration.

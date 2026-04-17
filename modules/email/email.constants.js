@@ -1,6 +1,6 @@
-// email.constants.js
+import {EMAIL_CONFIG} from "../../config/email.config.js"
 
-export const EMAIL_QUEUE_NAME = "email-queue";
+export const EMAIL_QUEUE_NAME = EMAIL_CONFIG.QUEUE.NAME;
 
 // ----------------------
 // JOB TYPES
@@ -14,22 +14,13 @@ export const EMAIL_JOB_TYPES = {
 // ----------------------
 export const EMAIL_QUEUE_OPTIONS = {
   defaultJobOptions: {
-    attempts: 5,
+    attempts: EMAIL_CONFIG.Job.ATTEMPTS,
 
-    backoff: {
-      type: "exponential",
-      delay: 2000
-    },
+    backoff: EMAIL_CONFIG.Job.BACKOFF,
 
-    removeOnComplete: {
-      age: 3600,   // keep completed jobs for 1 hour (debugging)
-      count: 1000  // max 1000 jobs
-    },
+    removeOnComplete: EMAIL_CONFIG.RETENTION.COMPLETED,
 
-    removeOnFail: {
-      age: 86400,  // keep failed jobs for 24 hours
-      count: 5000
-    }
+    removeOnFail: EMAIL_CONFIG.RETENTION.FAILED
   }
 };
 
@@ -41,6 +32,7 @@ export const EMAIL_TYPES = {
   FORGOT_PASSWORD: "forgot-password",
   CUSTOM: "custom"
 };
+
 
 export const email_log_status_array = ["pending", "sent", "failed"];
 
