@@ -60,6 +60,50 @@ export const getProfileById = async (id)=>{
   return Profile.findById(id);
 }
 
+export const getProfilesByQuery = async (filters)=>{
+  const query = {};
+
+  if (filters.user) {
+    query.user = filters.user;
+  }
+
+  const page = parseInt(filters.page || "1");
+  const limit = parseInt(filters.limit || "20");
+  const skip = (page - 1) * limit;
+
+
+  const [docs, total] = await Promise.all([
+    Profile.find(query)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean(),
+
+    Profile.countDocuments(query)
+  ]);
+
+
+  const data = docs;
+
+  const pages = Math.ceil(total / limit);
+  
+
+  const pagination = {
+    total,
+    page,
+    limit,
+    pages,
+    hasNextPage: page < pages,
+    hasPrevPage: page > 1
+  };
+
+  
+  return {
+    data,
+    pagination
+  };
+}
+
 export const updateProfile = async (
   userId,
   profileData,

@@ -1,3 +1,5 @@
+---
+
 # 👤 Profile API – Frontend Integration Guide
 
 This guide explains how to integrate **Profile APIs** from the frontend.
@@ -20,25 +22,25 @@ http://<your-domain>/api/profile
 Content-Type: application/json
 ```
 
-### ✅ Cookies
+### ✅ Authentication (Cookies)
 
-* Authentication uses **HTTP-only cookies**
-* Always send requests with:
+* Uses **HTTP-only cookies**
+* Always include:
 
 ```
 credentials: "include"
 ```
 
-### ❗ Why `credentials: "include"`
+### ❗ Why `credentials: "include"`?
 
-* Required to send cookies (accessToken)
-* Without it → user appears logged out
+* Sends authentication cookies (accessToken)
+* Without it → user will appear **logged out**
 
 ---
 
-# 👤 PROFILE APIs
+# 👤 Profile APIs
 
-⚠️ All routes require authentication
+⚠️ All endpoints require authentication
 
 ---
 
@@ -50,29 +52,40 @@ credentials: "include"
 POST /
 ```
 
-### Type
+### Content-Type
 
 `multipart/form-data`
 
 ### Fields
 
-* file → profile image (optional)
-* fullName (required)
-* phone (optional)
-* bio (optional)
-* country (optional)
-* city (optional)
-* address (optional)
+* `file` → Profile image *(optional)*
+* `fullName` *(required)*
+* `phone` *(optional)*
+* `bio` *(optional)*
+* `country` *(optional)*
+* `city` *(optional)*
+* `address` *(optional)*
 
 ---
 
 ## 2. Get Profile
 
-### Endpoint
+### Option A: By Profile ID
 
 ```
-GET /
+GET /:id
 ```
+
+### Option B: Current User Profile
+
+```
+GET /byUser
+```
+
+### Notes
+
+* `/byUser` extracts user ID from the **access token**
+* No request body or params required
 
 ### Response
 
@@ -93,20 +106,18 @@ GET /
 PUT /
 ```
 
-### Type
+### Content-Type
 
 `multipart/form-data`
 
 ### Options
 
-You can send:
+#### Option A: Upload New Image
 
-### Option A: Upload new file
+* `file`
+* Other fields
 
-* file
-* other fields
-
-### Option B: Use existing file
+#### Option B: Use Existing Image
 
 ```json
 {
@@ -116,8 +127,8 @@ You can send:
 
 ### ⚠️ Rules
 
-* Send **either file OR fileId**
-* Do NOT send both
+* Send **either `file` OR `fileId`**
+* Do **NOT** send both
 * At least one field must be provided
 
 ---
@@ -154,10 +165,8 @@ DELETE /
 
 # 🔄 Frontend Flow
 
-## Profile Flow
-
 1. Create profile
-2. View profile
+2. Fetch profile (`/byUser` recommended)
 3. Update profile
 4. Delete profile
 
@@ -165,10 +174,10 @@ DELETE /
 
 # 🚀 Important Notes
 
-* Always use `credentials: include`
+* Always use `credentials: "include"`
 * Use `multipart/form-data` for file uploads
-* Do NOT manually handle tokens
-* Handle 401 → redirect to login
+* Do **NOT** manually handle tokens
+* Handle `401 Unauthorized` → redirect to login
 
 ---
 
@@ -185,3 +194,5 @@ fetch("/api/profile", {
   credentials: "include"
 });
 ```
+
+---
