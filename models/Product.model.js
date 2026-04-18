@@ -4,9 +4,7 @@ const { Schema } = mongoose;
 
 const productSchema = new Schema(
   {
-    /* ======================
-       RELATIONSHIPS
-    ====================== */
+  
     seller: {
       type: Schema.Types.ObjectId,
       ref: "User",
@@ -14,7 +12,6 @@ const productSchema = new Schema(
       index: true
     },
 
-    // Ref to GENERAL category model (materialized path)
     category: {
       type: Schema.Types.ObjectId,
       ref: "Category",
@@ -22,9 +19,7 @@ const productSchema = new Schema(
       index: true
     },
 
-    /* ======================
-       CORE FIELDS
-    ====================== */
+  
     name: {
       type: String,
       required: true,
@@ -37,9 +32,6 @@ const productSchema = new Schema(
       trim: true
     },
 
-    /* ======================
-       PRICE (store smallest unit like paisa)
-    ====================== */
     price: {
       type: Number,
       required: true,
@@ -53,50 +45,45 @@ const productSchema = new Schema(
       min: 0
     },
 
-    /* ======================
-       IMAGES
-    ====================== */
     images: [
       {
-        type: String,
-        trim: true
+        type: Schema.Types.ObjectId,
+        ref:"MediaAsset"
       }
     ],
 
-    /* ======================
-       STATUS
-    ====================== */
     status: {
       type: String,
-      enum: ["available", "sold_out", "inactive"],
-      default: "available",
+      enum: PRODUCT_STATUS_ARRAY,
+      default: PRODUCT_STATUSES.AVAILABLE,
       index: true
     },
 
-    isDeleted: {
-      type: Boolean,
-      default: false,
-      index: true
-    },
-
-    /* ======================
-       MARKETPLACE DATA
-    ====================== */
     soldCount: {
       type: Number,
       default: 0
     },
 
-    ratingAverage: {
+    ratingSum: {
       type: Number,
-      min: 0,
-      max: 5,
-      default: 0
+      default: 0,
+      min: 0
     },
+
 
     ratingCount: {
       type: Number,
-      default: 0
+      default: 0,
+      min: 0
+    },
+
+
+    ratingAverage: {
+      type: Number,
+      default: 0,
+      min: 0,
+      max: 5,
+      index: true
     }
   },
   {
@@ -104,28 +91,17 @@ const productSchema = new Schema(
   }
 );
 
-/* ======================
-   AUTO STATUS BASED ON STOCK
-====================== */
 productSchema.pre("save", function (next) {
   if (this.quantityAvailable === 0) {
-    this.status = "sold_out";
+    this.status = PRODUCT_STATUSES.SOLD_OUT;
   } else if (this.status === "sold_out") {
-    this.status = "available";
+    this.status = PRODUCT_STATUSES.AVAILABLE;
   }
   next();
 });
 
 /* ======================
-   SOFT DELETE FILTER
-====================== */
-productSchema.pre(/^find/, function (next) {
-  this.where({ isDeleted: false });
-  next();
-});
-
-/* ======================
-   INDEXES (only important ones)
+   INDEXES
 ====================== */
 productSchema.index({ category: 1, price: 1 });
 productSchema.index({ seller: 1, status: 1 });

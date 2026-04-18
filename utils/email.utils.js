@@ -44,3 +44,9 @@ export const setEmailVerificationCooldown = async (userId) => {
   const { cooldown } = emailConfig();
   return setWithTTL(key.cooldown(userId), "1", cooldown);
 };
+
+export const generateToken = ()=>crypto.randomBytes(32).toString("hex");
+
+export const generateVerificationLink = (userId,token)=>{
+  return `${process.env.FRONTEND_URL}/api/auth/verify-email?userId=${userId}&token=${token}`
+}

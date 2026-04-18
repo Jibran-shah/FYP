@@ -44,17 +44,16 @@ const serviceProviderSchema = new Schema(
       index: true,
     },
 
-    // ⭐ RATING SYSTEM (OPTION B)
     ratingSum: {
       type: Number,
       default: 0,
-      min: 0,
+      min: 0
     },
 
     ratingCount: {
       type: Number,
       default: 0,
-      min: 0,
+      min: 0
     },
 
     ratingAverage: {
@@ -62,7 +61,8 @@ const serviceProviderSchema = new Schema(
       default: 0,
       min: 0,
       max: 5,
-    },
+      index: true
+    }
   },
   {
     timestamps: true,

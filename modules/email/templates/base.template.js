@@ -1,11 +1,4 @@
-// 🔒 Escape helper (shared safety)
-const escapeHtml = (str = "") =>
-  String(str)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
+import { escapeHtml } from "../utils/email.utils.js";
 
 export const baseTemplate = ({ title, content }) => {
   const safeTitle = escapeHtml(title);

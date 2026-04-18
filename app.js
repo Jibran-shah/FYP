@@ -14,6 +14,7 @@ import providerProfileRoutes from "./modules/profiles/provider/provider.routes.j
 import { requestIdMiddleware } from "./middlewares/requestId.middleware.js";
 import { httpLogger } from "./middlewares/httpLogger.middleware.js";
 import {logger} from "./config/logger.js";
+import { globalRateLimiter } from "./rateLimitors.js";
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -21,6 +22,7 @@ const PORT = process.env.PORT || 5000;
 const startServer = async () => {
   try {
     await connectDB();
+    app.use(globalRateLimiter)
     app.use(express.json());
     app.use(cookieParser());
     app.use(requestIdMiddleware);

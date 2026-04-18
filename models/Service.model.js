@@ -2,32 +2,23 @@ import mongoose from "mongoose";
 
 const { Schema } = mongoose;
 
-/**
- * Service Schema
- * Represents a service offered by a provider (e.g., freelancing, repair, consulting)
- */
 const serviceSchema = new Schema(
   {
-    /* ======================
-       RELATIONSHIPS
-    ====================== */
+  
     seller: {
       type: Schema.Types.ObjectId,
-      ref: "ServiceProvider", // points to provider profile, not raw user
+      ref: "ServiceProvider",
       required: true,
       index: true
     },
 
     category: {
       type: Schema.Types.ObjectId,
-      ref: "Category", // general materialized path category
+      ref: "Category",
       required: true,
       index: true
     },
 
-    /* ======================
-       CORE FIELDS
-    ====================== */
     name: {
       type: String,
       required: true,
@@ -51,40 +42,39 @@ const serviceSchema = new Schema(
       min: 0
     },
 
-    /* ======================
-       STATUS
-    ====================== */
     status: {
       type: String,
-      enum: ["available", "inactive", "booked"],
-      default: "available",
+      enum: SERVICE_STATUS_ARRAY,
+      default: SERVICE_STATUSES.AVAILABLE,
       index: true
     },
 
-    isDeleted: {
-      type: Boolean,
-      default: false,
-      index: true
-    },
 
-    /* ======================
-       ANALYTICS
-    ====================== */
     bookedCount: {
       type: Number,
       default: 0
     },
 
-    ratingAverage: {
+    ratingSum: {
       type: Number,
-      min: 0,
-      max: 5,
-      default: 0
+      default: 0,
+      min: 0
     },
+
 
     ratingCount: {
       type: Number,
-      default: 0
+      default: 0,
+      min: 0
+    },
+
+
+    ratingAverage: {
+      type: Number,
+      default: 0,
+      min: 0,
+      max: 5,
+      index: true
     }
   },
   {
@@ -92,13 +82,6 @@ const serviceSchema = new Schema(
   }
 );
 
-/* ======================
-   SOFT DELETE FILTER
-====================== */
-serviceSchema.pre(/^find/, function (next) {
-  this.where({ isDeleted: false });
-  next();
-});
 
 /* ======================
    INDEXES

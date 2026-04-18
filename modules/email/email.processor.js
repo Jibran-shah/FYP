@@ -6,6 +6,7 @@ import {
   markEmailFailure
 } from "./logs/emailLog.service.js";
 import { createLog } from "./logs/emailLog.utils.js";
+import { InternalServerError } from "../../errors/Http.error.js";
 
 // =========================
 // 🚀 MAIN PROCESSOR
@@ -15,7 +16,7 @@ export const emailProcessor = async (job) => {
   const { type, to, data = {} } = job.data || {};
 
   if (!type || !to) {
-    throw new Error("Invalid email job payload");
+    throw new InternalServerError("Invalid email job payload");
   }
 
   const normalizedTo = normalizeEmail(to);

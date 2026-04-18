@@ -16,15 +16,10 @@ export const createSeller = async ({
   mediaContext
 }) => {
 
-
-  console.log("start")
-
   const session = await mongoose.startSession();
   session.startTransaction();
 
   try {
-
-    if (!user) throw new BadRequestError("User is required");
 
     const existing = await ProductSeller.findOne({ user }).session(session);
 
@@ -43,8 +38,6 @@ export const createSeller = async ({
       session
     });
 
-    console.log("after resolve")
-
     const seller = await ProductSeller.create(
       [{
         user,
@@ -55,10 +48,10 @@ export const createSeller = async ({
       { session }
     );
 
-    console.log("hit end")
-
     await session.commitTransaction();
+
     return seller[0];
+
   } catch (err) {
     await session.abortTransaction();
     throw err;
@@ -69,19 +62,14 @@ export const createSeller = async ({
 
 // GET ALL
 export const getAllSellers = async (filters = {}) => {
+  
   const query = {};
-
   if (filters.isApproved !== undefined) {
     query.isApproved = filters.isApproved === "true";
   }
-
   if (filters.user) {
-    if (!mongoose.Types.ObjectId.isValid(filters.user)) {
-      throw new BadRequestError("Invalid user ID");
-    }
     query.user = filters.user;
   }
-
   const page = parseInt(filters.page || "1");
   const limit = parseInt(filters.limit || "20");
   const skip = (page - 1) * limit;
@@ -95,17 +83,13 @@ export const getAllSellers = async (filters = {}) => {
 
 // GET ONE
 export const getSellerById = async (id) => {
-  if (!mongoose.Types.ObjectId.isValid(id)) {
-    throw new BadRequestError("Invalid seller ID");
-  }
-
   return ProductSeller.findById(id).populate("user");
 };
 
 export const updateSeller = async (id, updates, userId) => {
   const session = await mongoose.startSession();
   session.startTransaction();
-
+  
   try {
     const seller = await ProductSeller.findById(id).session(session);
     if (!seller) throw new NotFoundError("Product seller not found");

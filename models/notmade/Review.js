@@ -2,69 +2,52 @@ import mongoose from "mongoose";
 
 const { Schema } = mongoose;
 
-/**
- * Review Schema
- * Supports reviews for Products OR Services (polymorphic reference)
- */
-const reviewSchema = new Schema(
+
+
+import mongoose from "mongoose";
+import { REVIEW_ENTITYS_ARRAY } from "../../constants/review.constants";
+
+const reviewSchema = new mongoose.Schema(
   {
-    // User who wrote the review
     user: {
-      type: Schema.Types.ObjectId,
+      type: mongoose.Schema.Types.ObjectId,
       ref: "User",
+      required: true
+    },
+
+    // 🔥 polymorphic reference
+    entityId: {
+      type: mongoose.Schema.Types.ObjectId,
       required: true,
-      index: true,
+      refPath: "entityType"
     },
 
-    // Product being reviewed (optional)
-    product: {
-      type: Schema.Types.ObjectId,
-      ref: "Product",
-      default: null,
-      index: true,
+    entityType: {
+      type: String,
+      required: true,
+      enum: REVIEW_ENTITYS_ARRAY
     },
 
-    // Service being reviewed (optional)
-    service: {
-      type: Schema.Types.ObjectId,
-      ref: "Service",
-      default: null,
-      index: true,
-    },
-
-    // Rating value (1 to 5)
     rating: {
       type: Number,
       required: true,
       min: 1,
-      max: 5,
-      index: true,
+      max: 5
     },
 
-    // Review text
     comment: {
       type: String,
-      trim: true,
-      maxlength: 1000,
-    },
+      trim: true
+    }
   },
-  {
-    timestamps: true,
-  }
+  { timestamps: true }
 );
 
-reviewSchema.pre("validate", function (next) {
-  if (!this.product && !this.service) {
-    return next(new Error("Review must belong to a product or a service"));
-  }
 
-  if (this.product && this.service) {
-    return next(new Error("Review cannot belong to both product and service"));
-  }
-
-  next();
-});
-
+reviewSchema.index(
+  { user: 1, entityId: 1, entityType: 1 },
+  { unique: true }
+);
 
 const Review = mongoose.model("Review", reviewSchema);
 export default Review;

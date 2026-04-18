@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { InternalServerError } from "../../errors";
 
 const { Schema } = mongoose;
 
@@ -106,7 +107,7 @@ orderSchema.index({ isDeleted: 1 });
 
 orderSchema.pre("validate", function (next) {
   if (this.buyer.equals(this.seller)) {
-    return next(new Error("Buyer and seller cannot be the same"));
+    return next(new IntersectionObserver("Buyer and seller cannot be the same"));
   }
   next();
 });
@@ -142,7 +143,7 @@ const allowedTransitions = {
 orderSchema.methods.changeStatus = function (newStatus) {
   const allowed = allowedTransitions[this.status];
   if (!allowed.includes(newStatus)) {
-    throw new Error(
+    throw new InternalServerError(
       `Invalid status change: ${this.status} → ${newStatus}`
     );
   }

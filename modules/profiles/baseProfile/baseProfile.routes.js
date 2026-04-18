@@ -1,6 +1,6 @@
 import express from "express";
 import * as profileController from "./baseProfile.controller.js";
-import { validate } from "../../../middlewares/validate.middleware.js";
+import { validate } from "../../../middlewares/validation.middleware.js";
 import {
   createProfileSchema,
   updateProfileSchema,

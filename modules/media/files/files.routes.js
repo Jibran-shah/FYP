@@ -9,7 +9,7 @@ import {
 } from "./files.controller.js";
 import { asyncHandler } from "../../../utils/asyncHandler.js";
 import { protect } from "../../../middlewares/auth.middleware.js";
-import { validate } from "../../../middlewares/validate.middleware.js";
+import { validate } from "../../../middlewares/validation.middleware.js";
 import {getAllMediaFilesSchema, mediaFileIdSchema , bulkDeleteSchema} from "./files.validation.js"
 import { parseMedia } from "../../../middlewares/media.middlware.js";
 

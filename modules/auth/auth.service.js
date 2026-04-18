@@ -28,7 +28,8 @@ import {
   checkOtpRequestLimit,
   increaseOtpAttempts,
   checkOtpAttempts,
-  resetOtpAttempts
+  resetOtpAttempts,
+  generateOtp
  } from "../../utils/otp.utils.js";
 
  import {
@@ -44,7 +45,9 @@ import {
   deleteEmailVerificationToken,
   assertEmailVerified,
   checkEmailVerificationCooldown,
-  setEmailVerificationCooldown
+  setEmailVerificationCooldown,
+  generateToken,
+  generateVerificationLink
 } from "../../utils/email.utils.js";
 import { logger } from "../../config/logger.js";
 import { AUTH_CONFIG } from "../../config/auth.config.js";
@@ -213,7 +216,7 @@ export const forgotPasswordService = async (email) => {
 
   await checkOtpRequestLimit(userId);
 
-  const otp = Math.floor(100000 + Math.random() * 900000).toString();
+  const otp = generateOtp();
 
   await setOtp(userId, otp);
 
@@ -297,7 +300,7 @@ export const resendResetOtpService = async (email) => {
 
   await checkOtpRequestLimit(userId);
 
-  const otp = Math.floor(100000 + Math.random() * 900000).toString();
+  const otp = generateOtp();
 
   await setOtp(userId, otp);
 
@@ -336,32 +339,6 @@ export const verifyEmailService = async (userId, token) => {
 };
 
 
-
-export const sendVerifyEmailService = async (userId) => {
-  const user = await User.findById(userId);
-
-  if (!user) throw new NotFoundError("User not found");
-  if (user.isEmailVerified) return;
-
-  await checkEmailVerificationCooldown(userId);
-
-  const token = crypto.randomBytes(32).toString("hex");
-
-  await setEmailVerificationToken(userId, token);
-
-  await setEmailVerificationCooldown(userId);
-
-  const link = `${process.env.FRONTEND_URL}/api/auth/verify-email?userId=${userId}&token=${token}`;
-
-  await emailService.sendVerificationEmail({
-    to: user.email,
-    userName: user.userName,
-    link
-  });
-};
-
-
-
 export const resendVerifyEmailService = async (userId) => {
   const user = await User.findById(userId);
 
@@ -370,12 +347,13 @@ export const resendVerifyEmailService = async (userId) => {
 
   await checkEmailVerificationCooldown(userId);
 
-  const token = crypto.randomBytes(32).toString("hex");
+  const token = generateToken();
 
   await setEmailVerificationToken(userId, token, emailVerifyTTL());
+  
   await setEmailVerificationCooldown(userId, emailVerifyCooldown());
 
-  const link = `${process.env.FRONTEND_URL}/verify-email?userId=${userId}&token=${token}`;
+  const link = generateVerificationLink(userId,token);
 
   await emailService.sendVerificationEmail({
     to: user.email,

@@ -7,7 +7,7 @@ import {
   deleteProductSeller,
   bulkDeleteProductSellers
 } from "./seller.controller.js";
-import { validate } from "../../../middlewares/validate.middleware.js";
+import { validate } from "../../../middlewares/validation.middleware.js";
 import {
   createProductSellerSchema,
   updateProductSellerSchema,
@@ -37,32 +37,15 @@ router.post(
 // ----------------------
 router.post(
   "/",
-  async(req, res, next) => {
-    console.log("HEADERS:", req.headers["content-type"]);
-    next();
-  },
   optionalUpload("file"),
-    async(req, res, next) => {
-    console.log("afte multer");
-  next();
-  }
-  ,
   parseMedia("file", {
     allowedMimeTypes: ["image/jpeg", "image/png", "image/webp"]
   }),
-  async(req, res, next) => {
-    console.log("after parse Media");
-    next();
-  },
   strictMediaContext({
     entity: "productSeller",
     usageType: "shopLogo",
     namespace: "productSeller"
   }),
-  async(req, res, next) => {
-  console.log("after Strict Media");
-  next();
-  },
   validate(createProductSellerSchema),
   asyncHandler(createProductSeller)
 );

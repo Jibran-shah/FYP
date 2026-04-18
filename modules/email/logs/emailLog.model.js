@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 import {
-  email_log_status_array,
-  EMAIL_LOG_STATUS_TYPES
+  EMAIL_STATUS_TYPES,
+  EMAIL_STATUS_TYPES_ARRAY
 } from "../email.constants.js";
 
 const emailLogSchema = new mongoose.Schema(
@@ -33,8 +33,8 @@ const emailLogSchema = new mongoose.Schema(
 
     status: {
       type: String,
-      enum: email_log_status_array,
-      default: EMAIL_LOG_STATUS_TYPES.PENDING,
+      enum: EMAIL_STATUS_TYPES_ARRAY,
+      default: EMAIL_STATUS_TYPES.PENDING,
       index: true
     },
 
@@ -58,7 +58,7 @@ const emailLogSchema = new mongoose.Schema(
     },
 
     meta: {
-      type: mongoose.Schema.Types.Mixed // ✅ flexible + safe
+      type: mongoose.Schema.Types.Mixed
     },
 
     // ✅ TTL handled here
@@ -74,7 +74,6 @@ const emailLogSchema = new mongoose.Schema(
   }
 );
 
-// ✅ Indexes
 emailLogSchema.index({ createdAt: -1 });
 emailLogSchema.index({ status: 1, type: 1 });
 emailLogSchema.index({ to: 1, type: 1 });

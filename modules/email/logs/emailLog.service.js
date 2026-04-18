@@ -1,5 +1,5 @@
 import EmailLog from "./emailLog.model.js";
-import { EMAIL_LOG_STATUS_TYPES } from "../email.constants.js";
+import { EMAIL_STATUS_TYPES } from "../email.constants.js";
 
 // 🔒 sanitize error object
 const serializeError = (error) => ({
@@ -27,7 +27,7 @@ export const createEmailLog = async ({
     subject,
     meta,
     user,
-    status: EMAIL_LOG_STATUS_TYPES.PENDING
+    status: EMAIL_STATUS_TYPES.PENDING
   });
 };
 
@@ -40,10 +40,10 @@ export const markEmailSuccess = async (logId, data = {}) => {
   return EmailLog.findByIdAndUpdate(
     logId,
     {
-      status: EMAIL_LOG_STATUS_TYPES.SENT,
+      status: EMAIL_STATUS_TYPES.SENT,
       provider: data.provider,
       messageId: data.messageId,
-      error: undefined // ✅ clear previous error if retry succeeded
+      error: undefined
     },
     {
       new: true,
@@ -61,7 +61,7 @@ export const markEmailFailure = async (logId, error) => {
   return EmailLog.findByIdAndUpdate(
     logId,
     {
-      status: EMAIL_LOG_STATUS_TYPES.FAILED,
+      status: EMAIL_STATUS_TYPES.FAILED,
       error: serializeError(error)
     },
     {

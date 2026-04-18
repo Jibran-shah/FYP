@@ -1,5 +1,6 @@
 import Joi from "joi";
 import { objectId } from "../../../validationSchemas/mongodb.schemas.js";
+import { mongoIdSchema } from "../../../validationSchemas/general.schemas.js";
 
 
 export const createServiceProviderSchema = Joi.object({
@@ -67,13 +68,13 @@ export const getAllServiceProviderQuerySchema = Joi.object({
 
 
 export const serviceProviderIdParamSchema = Joi.object({
-  id: Joi.string().custom(objectId).required()
+  id: mongoIdSchema.required()
 });
 
 
 export const bulkDeleteServiceProviderSchema = Joi.object({
   ids: Joi.array()
-    .items(Joi.string().custom(objectId).required())
+    .items(mongoIdSchema.required())
     .min(1)
     .required()
 });

@@ -1,4 +1,5 @@
 export const EMAIL_CONFIG = {
+  PROVIDER: process.env.EMAIL_PROVIDER || "smtp",
   QUEUE: {
     NAME: process.env.EMAIL_QUEUE_NAME || "email-queue",
   },

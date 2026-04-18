@@ -1,6 +1,6 @@
 import Joi from "joi";
-import { objectId } from "../../../validationSchemas/mongodb.schemas.js";
 import { MEDIA_USAGE_TYPES } from "../../../constants/media.constants.js";
+import { mongoIdSchema, requiredMsg } from "../../../validationSchemas/general.schemas.js";
 
 
 
@@ -24,7 +24,9 @@ export const createMediaAssetSchema = Joi.object({
   .min(1)
   .optional(),
 
-  file: Joi.string().custom(objectId).required()
+  file: mongoIdSchema
+    .required()
+    .messages(requiredMsg("file"))
 });
 
 
@@ -50,13 +52,15 @@ export const updateMediaAssetSchema = Joi.object({
 
 
 export const mediaAssetIdParamSchema = Joi.object({
-  id: Joi.string().custom(objectId).required()
+  id: mongoIdSchema
+    .required()
+    .messages(requiredMsg("id"))
 });
 
 
 export const bulkDeleteMediaAssetsSchema = Joi.object({
   mediaAssetIds: Joi.array()
-    .items(Joi.string().custom(objectId).required())
+    .items(mongoIdSchema.required())
     .min(1)
     .required()
 });

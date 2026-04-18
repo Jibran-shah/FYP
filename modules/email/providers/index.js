@@ -1,3 +1,5 @@
+import { EMAIL_CONFIG } from "../../../config/email.config.js";
+import { InternalServerError } from "../../../errors/Http.error.js";
 import { smtpProvider } from "./smtp.provider.js";
 
 const providers = {
@@ -5,16 +7,15 @@ const providers = {
 };
 
 export const getEmailProvider = () => {
-  const providerName = (process.env.EMAIL_PROVIDER || "smtp").toLowerCase();
+  const providerName = (EMAIL_CONFIG.PROVIDER).toLowerCase();
 
   const provider = providers[providerName];
-
   if (!provider) {
-    throw new Error(`Unsupported email provider: ${providerName}`);
+    throw new InternalServerError(`Unsupported email provider: ${providerName}`);
   }
 
   if (typeof provider.sendEmail !== "function") {
-    throw new Error(`Invalid provider implementation: ${providerName}`);
+    throw new InternalServerError(`Invalid provider implementation: ${providerName}`);
   }
 
   return provider;
@@ -29,7 +30,7 @@ export const getValidProvider = () => {
   const provider = getEmailProvider();
 
   if (!provider || typeof provider.sendEmail !== "function") {
-    throw new Error("Invalid email provider");
+    throw new InternalServerError("Invalid email provider");
   }
 
   return provider;

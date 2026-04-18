@@ -10,7 +10,7 @@ import {
 } from "./assets.controller.js";
 import { asyncHandler } from "../../../utils/asyncHandler.js";
 import { bulkDeleteMediaAssetsSchema, createMediaAssetSchema, getAllMediaAssetsQuerySchema, mediaAssetIdParamSchema, updateMediaAssetSchema } from "./assets.validation.js";
-import {validate} from "../../../middlewares/validate.middleware.js"
+import {validate} from "../../../middlewares/validation.middleware.js"
 
 const router = express.Router();
 

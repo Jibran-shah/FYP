@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import bcrypt from "bcrypt";
+import { InternalServerError } from "../errors/index.js";
 
 const userSchema = new mongoose.Schema({
   userName: {
@@ -49,7 +50,7 @@ const userSchema = new mongoose.Schema({
 
 userSchema.methods.comparePassword = async function (candidatePassword) {
   if (!this.password) {
-    throw new Error("Password not selected in query");
+    throw new InternalServerError("Password not selected in query");
   }
   return bcrypt.compare(candidatePassword, this.password);
 };

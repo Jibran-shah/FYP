@@ -34,10 +34,13 @@ export const EMAIL_TYPES = {
 };
 
 
-export const email_log_status_array = ["pending", "sent", "failed"];
 
-export const EMAIL_LOG_STATUS_TYPES = {
-  PENDING: email_log_status_array[0],
-  SENT: email_log_status_array[1],
-  FAILED: email_log_status_array[2]
+
+export const EMAIL_STATUS_TYPES = {
+  PENDING: "pending",
+  SENT: "sent",
+  FAILED: "failed"
 };
+
+
+export const EMAIL_STATUS_TYPES_ARRAY = [EMAIL_STATUS_TYPES.PENDING, EMAIL_STATUS_TYPES.SENT, EMAIL_STATUS_TYPES.FAILED];

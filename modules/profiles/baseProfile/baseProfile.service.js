@@ -3,6 +3,7 @@ import Profile from "../../../models/Profile.model.js";
 import User from "../../../models/User.model.js";
 import { BadRequestError, InternalServerError, NotFoundError } from "../../../errors/index.js";
 import { mediaService } from "../../media/media.service.js";
+import { parseMongoDuplicateError } from "../../../utils/errorHandling.utils.js";
 
 export const createProfile = async (userId, profileData, media, context) => {
 
@@ -40,6 +41,14 @@ export const createProfile = async (userId, profileData, media, context) => {
     return profile;
 
   } catch (err) {
+
+    const duplicate = parseMongoDuplicateError(err);
+    if(duplicate){
+      const message = 
+      duplicate.field==="user"?
+      "Profile already exist for this user":duplicate.message;
+      throw new BadRequestError(message)
+    }
 
     await session.abortTransaction();
     throw err;

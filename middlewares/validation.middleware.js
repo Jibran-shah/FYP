@@ -24,3 +24,26 @@ export const validate = (schema, property = "body") => (req, res, next) => {
 
   next();
 };
+
+
+
+export const validateFileOrFileId = (req, res, next) => {
+  const hasFile = !!req.file;
+  const hasFileId = !!req.body.fileId;
+
+  if (hasFile && hasFileId) {
+    return res.status(400).json({
+      success: false,
+      message: "Provide either file or fileId, not both"
+    });
+  }
+
+  if (!hasFile && !hasFileId) {
+    return res.status(400).json({
+      success: false,
+      message: "Either file or fileId is required"
+    });
+  }
+
+  next();
+};
