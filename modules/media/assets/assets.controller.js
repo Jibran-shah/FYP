@@ -1,15 +1,11 @@
-// controllers/mediaAsset.controller.js
-import { NotFoundError } from "../../../errors/Http.error.js";
 import { createAsset,getAllAssets,getAssetById,deleteAsset,bulkDeleteAssets,updateAsset } from "./assets.service.js";
 
 // ------------------------
 // CREATE MediaAsset
 // ------------------------
 export const createMediaAsset = async (req, res) => {
-
-  const { title, slug, usageType, namespace, file} = req.body;
-
-  const uploadedBy = req.user?._id || null;
+  const { title, slug, usageType, namespace, file} = req.validated?.body;
+  const uploadedBy = req.user?.id;
 
   const mediaAsset = await createAsset({
     title,
@@ -27,11 +23,8 @@ export const createMediaAsset = async (req, res) => {
 // READ ALL MediaAssets
 // ------------------------
 export const getAllMediaAssets = async (req, res) => {
-
-  const filters = req.query;
-
+  const filters = req.validated?.query;
   const mediaAssets = await getAllAssets(filters);
-
   return res.status(200).json({ mediaAssets });
 };
 
@@ -39,11 +32,8 @@ export const getAllMediaAssets = async (req, res) => {
 // READ ONE MediaAsset
 // ------------------------
 export const getMediaAssetById = async (req, res) => {
-  
-  const { id:mediaAssetId } = req.params;
-
+  const { id:mediaAssetId } = req.validated?.params;
   const mediaAsset = await getAssetById(mediaAssetId);
-
   return res.status(200).json({ mediaAsset });
 };
 
@@ -51,12 +41,10 @@ export const getMediaAssetById = async (req, res) => {
 // UPDATE MediaAsset (metadata only)
 // ------------------------
 export const updateMediaAsset = async (req, res) => {
-  const { id : mediaAssetId } = req.params;
-  const updates = req.body;
-  const updatedBy = req.user?._id || null;
-
+  const { id : mediaAssetId } = req.validated?.params;
+  const updates = req.validated?.body;
+  const updatedBy = req.user?.id;
   const updatedAsset = await updateAsset(mediaAssetId, updates, updatedBy);
-
   return res.status(200).json({ mediaAsset: updatedAsset });
 };
 
@@ -64,11 +52,9 @@ export const updateMediaAsset = async (req, res) => {
 // DELETE SINGLE MediaAsset
 // ------------------------
 export const deleteMediaAsset = async (req, res) => {
-  const { id :mediaAssetId } = req.params;
-  const deletedBy = req.user?._id || null;
-
+  const { id :mediaAssetId } = req.validated?.params;
+  const deletedBy = req.user?.id;
   await deleteAsset(mediaAssetId, deletedBy);
-
   return res.status(200).json({ message: "Media asset deleted successfully" });
 };
 
@@ -76,12 +62,8 @@ export const deleteMediaAsset = async (req, res) => {
 // BULK DELETE MediaAssets
 // ------------------------
 export const bulkDeleteMediaAssets = async (req, res) => {
-
-  const { mediaAssetIds } = req.body;
-
-  const deletedBy = req.user?._id || null;
-
+  const { mediaAssetIds } = req.validated?.body;
+  const deletedBy = req.user?.id;
   await bulkDeleteAssets(mediaAssetIds, deletedBy);
-
   return res.status(200).json({ message: "Bulk delete successful" });
 };

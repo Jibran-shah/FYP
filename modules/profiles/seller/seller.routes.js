@@ -5,7 +5,8 @@ import {
   getProductSellerById,
   updateProductSeller,
   deleteProductSeller,
-  bulkDeleteProductSellers
+  bulkDeleteProductSellers,
+  getMySellerProfile
 } from "./seller.controller.js";
 import { validate } from "../../../middlewares/validation.middleware.js";
 import {
@@ -58,11 +59,17 @@ router.get("/", getAllProductSellers);
 // ----------------------
 // GET ONE
 // ----------------------
+
+router.get("/me",getMySellerProfile)
+
 router.get(
   "/:id",
   validate(productSellerIdParamSchema, "params"),
   getProductSellerById
 );
+
+
+
 
 // ----------------------
 // UPDATE

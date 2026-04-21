@@ -76,6 +76,24 @@ export const getProfilesByQuery = async (filters)=>{
     query.user = filters.user;
   }
 
+  if(filters.roles){
+    query.roles = Array.isArray(filters.roles)
+    ? filters.roles
+    : filters.roles?.split(",");
+  }
+
+  if(filters.country){
+    query.country = filters.country
+  }
+
+  if(filters.city){
+    query.city = filters.city
+  }
+
+  if(filters.address){
+    query.address = filters.address
+  }
+
   const page = parseInt(filters.page || "1");
   const limit = parseInt(filters.limit || "20");
   const skip = (page - 1) * limit;
@@ -126,15 +144,9 @@ export const updateProfile = async (
     const profile = await Profile.findOne({ user: userId }).session(session);
     if (!profile) throw new NotFoundError("Profile not found");
 
-    
-        if (newLogoId && seller.shopLogo) {
-          
-          seller.shopLogo = newLogoId;
-        }
-
     const newAssetId = await mediaService.resolve({
           file: media?.file,
-          fileId,
+          fileId:profileData.fileId,
           context,
           userId,
           session

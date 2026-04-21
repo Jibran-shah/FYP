@@ -7,7 +7,8 @@ import {
   getServiceProviderById,
   updateServiceProvider,
   deleteServiceProvider,
-  bulkDeleteServiceProviders
+  bulkDeleteServiceProviders,
+  updateServiceProviderByUser
 } from "./provider.controller.js";
 import { validate } from "../../../middlewares/validation.middleware.js";
 import { bulkDeleteServiceProviderSchema, createServiceProviderSchema, serviceProviderIdParamSchema, updateServiceProviderSchema } from "./provider.validation.js";
@@ -22,6 +23,12 @@ router.post("/bulk-delete",validate(bulkDeleteServiceProviderSchema) , bulkDelet
 // GET ALL + CREATE
 router.get("/", getAllServiceProviders);
 router.post("/",validate(createServiceProviderSchema), createServiceProvider);
+
+router.put(
+  "/byUser",
+  validate(updateServiceProviderSchema),
+  updateServiceProviderByUser
+);
 
 // 🔥 DYNAMIC ROUTES LAST
 router.put(

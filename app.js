@@ -11,10 +11,15 @@ import mediaAssetRoutes from "./modules/media/assets/assets.routes.js"
 import basePorfileRoutes from "./modules/profiles/baseProfile/baseProfile.routes.js"
 import sellerProfileRoutes from "./modules/profiles/seller/seller.routes.js"
 import providerProfileRoutes from "./modules/profiles/provider/provider.routes.js"
+import categoryRoutes from "./modules/categories/categories.routes.js"
+import productRoutes from "./modules/products/products.routes.js"
+import serviceRoutes from "./modules/services/services.routes.js"
 import { requestIdMiddleware } from "./middlewares/requestId.middleware.js";
 import { httpLogger } from "./middlewares/httpLogger.middleware.js";
 import {logger} from "./config/logger.js";
 import { globalRateLimiter } from "./rateLimitors.js";
+
+const rootRoute = "/api/";
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -31,12 +36,15 @@ const startServer = async () => {
       "/uploads",
       express.static(path.join(process.cwd(), "uploads"))
     );
-    app.use("/api/auth",authRoutes);
-    app.use("/api/media/files",mediaFileRoutes);
-    app.use("/api/media/assets",mediaAssetRoutes);
-    app.use("/api/profile/base",basePorfileRoutes);
-    app.use("/api/profile/seller",sellerProfileRoutes)
-    app.use("/api/profile/provider",providerProfileRoutes)
+    app.use(rootRoute+"auth",authRoutes);
+    app.use(rootRoute+"products",productRoutes)
+    app.use(rootRoute+"services",serviceRoutes)
+    app.use(rootRoute+"categories",categoryRoutes)
+    app.use(rootRoute+"media/files",mediaFileRoutes);
+    app.use(rootRoute+"media/assets",mediaAssetRoutes);
+    app.use(rootRoute+"profile/base",basePorfileRoutes);
+    app.use(rootRoute+"profile/seller",sellerProfileRoutes)
+    app.use(rootRoute+"profile/provider",providerProfileRoutes)
     app.get("/", (req, res) => {
       res.send("API Running");
     });

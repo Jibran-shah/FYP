@@ -1,9 +1,11 @@
-import Joi from "joi";
 import mongoose from "mongoose";
 
+export const isValidId = (id) =>
+  mongoose.Types.ObjectId.isValid(id);
+
 export const objectId = (value, helpers) => {
-  if (!mongoose.Types.ObjectId.isValid(value)) {
-    return helpers.message("Invalid ObjectId format");
+  if (!isValidId(value)) {
+    return helpers?.error("any.invalid");
   }
   return value;
 };

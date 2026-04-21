@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import { DEFAULTS, PROFILE_ROLE_TYPES } from "../constants/profile.constants.js";
+import { PROFILE_ROLE_TYPES_ARRAY, PROFILE_ROLE_TYPES } from "../constants/profile.constants.js";
 
 const profileSchema = new mongoose.Schema(
   {
@@ -45,9 +45,10 @@ const profileSchema = new mongoose.Schema(
     },
 
     role: {
-        type: String,
-        enum: PROFILE_ROLE_TYPES,
-        default: DEFAULTS.role
+        type: [String],
+        enum: PROFILE_ROLE_TYPES_ARRAY,
+        default: [PROFILE_ROLE_TYPES.BUYER],
+        index:true
     }
   },
   {

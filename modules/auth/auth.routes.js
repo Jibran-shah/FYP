@@ -53,6 +53,6 @@ router.post("/logout", protect({ isProfileCompleteCheck: false }), asyncHandler(
 router.post("/logout-all", protect({ isProfileCompleteCheck: false }), asyncHandler(logoutAll));
 
 // Refresh token
-router.get("/refresh-token", protect({ isProfileCompleteCheck: false }), asyncHandler(refreshToken));
+router.get("/refresh-token", asyncHandler(refreshToken));
 
 export default router;

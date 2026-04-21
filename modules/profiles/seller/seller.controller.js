@@ -3,11 +3,9 @@ import { NotFoundError } from "../../../errors/Http.error.js";
 
 // CREATE
 export const createProductSeller = async (req, res) => {
-  const userId = req.user?.id;
-
   const seller = await productSellerService.createSeller({
-    ...req.body,
-    user: userId,
+    ...req.validated?.body,
+    userId: req.user?.id,
     media: req.media,
     mediaContext: req.mediaContext
   });
@@ -20,7 +18,7 @@ export const createProductSeller = async (req, res) => {
 
 // READ ALL
 export const getAllProductSellers = async (req, res) => {
-  const sellers = await productSellerService.getAllSellers(req.query || {});
+  const sellers = await productSellerService.getAllSellers(req.validated?.query || {});
 
   return res.status(200).json({
     success: true,
@@ -30,7 +28,7 @@ export const getAllProductSellers = async (req, res) => {
 
 // READ ONE
 export const getProductSellerById = async (req, res) => {
-  const seller = await productSellerService.getSellerById(req.params.id);
+  const seller = await productSellerService.getSellerById(req.validated?.params.id);
 
   if (!seller) {
     throw new NotFoundError("Product seller not found");
@@ -42,16 +40,27 @@ export const getProductSellerById = async (req, res) => {
   });
 };
 
+export const getMySellerProfile = async(req,res) =>{
+  const seller = await productSellerService.getSellerByUser(req.user?.id);
+  if (!seller) {
+    throw new NotFoundError("Product seller not found");
+  }
+  return res.status(200).json({
+    success:true,
+    productSeller:seller
+  });
+}
+
 // UPDATE
 export const updateProductSeller = async (req, res) => {
   const updated = await productSellerService.updateSeller(
-    req.params.id,
+    req.validated?.params.id,
     {
-      ...req.body,
+      ...req.validated?.body,
       media: req.media,
       mediaContext: req.mediaContext
     },
-    req.user?._id
+    req.user?.id
   );
 
   return res.status(200).json({
@@ -63,8 +72,8 @@ export const updateProductSeller = async (req, res) => {
 // DELETE
 export const deleteProductSeller = async (req, res) => {
   await productSellerService.deleteSeller(
-    req.params.id,
-    req.user?._id
+    req.validated?.params.id,
+    req.user?.id
   );
 
   return res.status(200).json({
@@ -76,8 +85,8 @@ export const deleteProductSeller = async (req, res) => {
 // BULK DELETE
 export const bulkDeleteProductSellers = async (req, res) => {
   await productSellerService.bulkDeleteSellers(
-    req.body.ids,
-    req.user?._id
+    req.validated?.body.ids,
+    req.user?.id
   );
 
   return res.status(200).json({
@@ -85,3 +94,4 @@ export const bulkDeleteProductSellers = async (req, res) => {
     message: "Bulk delete successful"
   });
 };
+

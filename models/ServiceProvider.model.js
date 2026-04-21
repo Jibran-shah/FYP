@@ -4,6 +4,7 @@ const { Schema } = mongoose;
 
 const serviceProviderSchema = new Schema(
   {
+
     user: {
       type: Schema.Types.ObjectId,
       ref: "User",
@@ -12,6 +13,7 @@ const serviceProviderSchema = new Schema(
       index: true,
     },
 
+
     title: {
       type: String,
       required: true,
@@ -19,11 +21,13 @@ const serviceProviderSchema = new Schema(
       maxlength: 120,
     },
 
+
     description: {
       type: String,
       trim: true,
       maxlength: 1000,
     },
+
 
     skills: {
       type: [String],
@@ -38,11 +42,13 @@ const serviceProviderSchema = new Schema(
       min: 0,
     },
 
+
     isApproved: {
       type: Boolean,
       default: false,
       index: true,
     },
+
 
     ratingSum: {
       type: Number,
@@ -50,11 +56,13 @@ const serviceProviderSchema = new Schema(
       min: 0
     },
 
+
     ratingCount: {
       type: Number,
       default: 0,
       min: 0
     },
+
 
     ratingAverage: {
       type: Number,
@@ -63,16 +71,14 @@ const serviceProviderSchema = new Schema(
       max: 5,
       index: true
     }
+    
   },
   {
     timestamps: true,
   }
 );
 
-// indexes
-serviceProviderSchema.index({ isApproved: 1 });
 serviceProviderSchema.index({ experienceYears: 1 });
-
 serviceProviderSchema.index({ ratingAverage: -1 });
 serviceProviderSchema.index({ ratingCount: -1 });
 

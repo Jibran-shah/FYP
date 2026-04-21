@@ -40,6 +40,12 @@ export const bulkDeleteProductSellerSchema = Joi.object({
 });
 
 export const getAllProductSellerQuerySchema = Joi.object({
+  shopName: Joi.string()
+    .trim()
+    .min(1)
+    .max(100)
+    .optional(),
+  isApproved: Joi.string().trim().optional(),
   page: Joi.number().integer().min(1).optional(),
   limit: Joi.number().integer().min(1).max(100).optional(),
   isApproved: Joi.boolean().optional(),

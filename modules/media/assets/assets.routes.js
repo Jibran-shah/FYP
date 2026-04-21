@@ -11,8 +11,12 @@ import {
 import { asyncHandler } from "../../../utils/asyncHandler.js";
 import { bulkDeleteMediaAssetsSchema, createMediaAssetSchema, getAllMediaAssetsQuerySchema, mediaAssetIdParamSchema, updateMediaAssetSchema } from "./assets.validation.js";
 import {validate} from "../../../middlewares/validation.middleware.js"
+import { protect } from "../../../middlewares/auth.middleware.js";
 
 const router = express.Router();
+
+
+router.use(protect())
 
 // ------------------------
 // CREATE

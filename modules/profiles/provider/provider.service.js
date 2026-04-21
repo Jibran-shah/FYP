@@ -1,36 +1,54 @@
 import mongoose from "mongoose";
 import ServiceProvider from "../../../models/ServiceProvider.model.js";
 import { BadRequestError, NotFoundError, UnauthorizedError } from "../../../errors/Http.error.js";
+import ProfileModel from "../../../models/Profile.model.js";
+import { syncRole } from "../../../utils/roleSync.utils.js";
+import { PROFILE_ROLE_TYPES } from "../../../constants/profile.constants.js";
 
 // ------------------------
 // CREATE Provider
 // ------------------------
 export const createProvider = async ({
-    user,
+    userId,
     title,
     description,
     skills,
     experienceYears
 }) => {
-
-    try{
-        const provider = await ServiceProvider.create({
-            user,
+    const session = await mongoose.startSession();
+    session.startTransaction();
+    
+    try {
+        const provider = await ServiceProvider.create([{
+            user:userId,
             title,
             description,
             skills,
             experienceYears
-        });
-        return provider;
-    }
-    catch (err) {
+        }], { session });
+
+        // ✅ Add provider role
+        await syncRole({
+            userId,
+            role:PROFILE_ROLE_TYPES.SERVICE_PROVIDER,
+            Model:ServiceProvider,
+            session
+        })
+
+        await session.commitTransaction();
+        session.endSession();
+
+        return provider[0];
+    } catch (err) {
+        await session.abortTransaction();
+        session.endSession();
+
         if (err.code === 11000) {
             throw new BadRequestError("Service provider already exists");
         }
         throw err;
     }
-}
-
+};
 // ------------------------
 // GET ALL Providers
 // ------------------------
@@ -122,32 +140,122 @@ export const updateProvider = async (id, updates, userId) => {
     return provider;
 }
 
+
+export const updateProviderByUser = async (updates, userId) => {
+
+    const provider = await ServiceProvider.findOne({user:userId});
+
+    if (!provider) throw new NotFoundError("Service provider not found");
+
+    // Ownership check
+    if (provider.user.toString() !== userId.toString()) {
+        throw new UnauthorizedError("Not allowed to update this service provider");
+    }
+
+    const {
+        title,
+        description,
+        skills,
+        experienceYears,
+        isApproved,
+    } = updates;
+
+    // Allowed updates
+    if (title !== undefined) provider.title = title;
+    if (description !== undefined) provider.description = description;
+    if (skills !== undefined) provider.skills = skills;
+    if (experienceYears !== undefined)
+        provider.experienceYears = experienceYears;
+
+    // 🔥 Business rules (important)
+    // Ideally only admin updates these
+    if (isApproved !== undefined) provider.isApproved = isApproved;
+
+
+    await provider.save();
+    return provider;
+}
+
+
 // ------------------------
 // DELETE Provider
 // ------------------------
 export const deleteProvider = async (id, userId) => {
 
-    const provider = await ServiceProvider.findById(id);
-    if (!provider) throw new NotFoundError("Service provider not found");
+    const session = await mongoose.startSession();
+    session.startTransaction();
 
-    // Ownership check
-    if (provider.user.toString() !== userId.toString()) {
-        throw new UnauthorizedError("Not allowed to delete this service provider");
+    try {
+        const provider = await ServiceProvider.findById(id).session(session);
+        if (!provider) throw new NotFoundError("Service provider not found");
+
+        if (provider.user.toString() !== userId.toString()) {
+            throw new UnauthorizedError("Not allowed to delete this service provider");
+        }
+
+        await provider.deleteOne({ session });
+
+        // ✅ Check if any providers remain
+        const remaining = await ServiceProvider.countDocuments({ user: userId }).session(session);
+
+        await provider.deleteOne({ session });
+
+        await syncRole({
+            userId,
+            role: PROFILE_ROLE_TYPES.SERVICE_PROVIDER,
+            Model: ServiceProvider,
+            session
+        });
+
+        await session.commitTransaction();
+        session.endSession();
+
+        return { success: true };
+
+    } catch (err) {
+        await session.abortTransaction();
+        session.endSession();
+        throw err;
     }
+};
 
-    await provider.deleteOne();
+export const bulkDeleteProviders = async (ids) => {
 
-    return { success: true };
-}
+    const session = await mongoose.startSession();
+    session.startTransaction();
 
-// ------------------------
-// BULK DELETE Providers
-// ------------------------
-export const bulkDeleteProviders = async (ids, userId) => {
-    const deleted = await ServiceProvider.deleteMany({
-        _id: { $in: ids },
-        user: userId
-    });
+    try {
+        // ✅ Step 1: get affected providers
+        const providers = await ServiceProvider.find({
+            _id: { $in: ids }
+        }).session(session);
 
-    return { success: true, deletedCount: deleted.deletedCount };
-}
+        // ✅ Step 2: unique userIds
+        const userIds = [...new Set(providers.map(p => p.user.toString()))];
+
+        // ✅ Step 3: delete
+        const deleted = await ServiceProvider.deleteMany({
+            _id: { $in: ids }
+        }).session(session);
+
+        // ✅ Step 4: sync roles
+        for (const userId of userIds) {
+            await syncRole({
+                userId,
+                role: PROFILE_ROLE_TYPES.SERVICE_PROVIDER,
+                Model: ServiceProvider,
+                session
+            });
+        }
+
+        await session.commitTransaction();
+        session.endSession();
+
+        return { success: true, deletedCount: deleted.deletedCount };
+
+    } catch (err) {
+        await session.abortTransaction();
+        session.endSession();
+        throw err;
+    }
+};

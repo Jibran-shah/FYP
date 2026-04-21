@@ -1,10 +1,11 @@
 import mongoose from "mongoose";
+import { PRODUCT_STATUSES,PRODUCT_STATUS_ARRAY } from "../constants/product.constants.js";
 
 const { Schema } = mongoose;
 
 const productSchema = new Schema(
   {
-  
+
     seller: {
       type: Schema.Types.ObjectId,
       ref: "User",
@@ -19,7 +20,11 @@ const productSchema = new Schema(
       index: true
     },
 
-  
+    categoryPath: {
+      type: String,
+      required: true
+    },
+
     name: {
       type: String,
       required: true,
@@ -48,7 +53,7 @@ const productSchema = new Schema(
     images: [
       {
         type: Schema.Types.ObjectId,
-        ref:"MediaAsset"
+        ref: "MediaAsset"
       }
     ],
 
@@ -70,13 +75,11 @@ const productSchema = new Schema(
       min: 0
     },
 
-
     ratingCount: {
       type: Number,
       default: 0,
       min: 0
     },
-
 
     ratingAverage: {
       type: Number,
@@ -91,13 +94,12 @@ const productSchema = new Schema(
   }
 );
 
-productSchema.pre("save", function (next) {
+productSchema.pre("save", function () {
   if (this.quantityAvailable === 0) {
     this.status = PRODUCT_STATUSES.SOLD_OUT;
-  } else if (this.status === "sold_out") {
+  } else if (this.status === PRODUCT_STATUSES.SOLD_OUT) {
     this.status = PRODUCT_STATUSES.AVAILABLE;
   }
-  next();
 });
 
 /* ======================
@@ -105,6 +107,8 @@ productSchema.pre("save", function (next) {
 ====================== */
 productSchema.index({ category: 1, price: 1 });
 productSchema.index({ seller: 1, status: 1 });
+productSchema.index({ categoryPath: 1 });
+productSchema.index({ categoryPath: 1, price: 1 });
 
 const Product = mongoose.model("Product", productSchema);
 

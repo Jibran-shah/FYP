@@ -1,11 +1,13 @@
 import mongoose from "mongoose";
 
+import { SERVICE_STATUSES,SERVICE_STATUS_ARRAY } from "../constants/service.constants.js";
+
 const { Schema } = mongoose;
 
 const serviceSchema = new Schema(
   {
-  
-    seller: {
+
+    provider: {
       type: Schema.Types.ObjectId,
       ref: "ServiceProvider",
       required: true,
@@ -17,6 +19,11 @@ const serviceSchema = new Schema(
       ref: "Category",
       required: true,
       index: true
+    },
+
+    categoryPath: {
+      type: String,
+      required: true
     },
 
     name: {
@@ -34,7 +41,8 @@ const serviceSchema = new Schema(
     price: {
       type: Number,
       required: true,
-      min: 0
+      min: 0,
+      index: true
     },
 
     durationHours: {
@@ -49,7 +57,6 @@ const serviceSchema = new Schema(
       index: true
     },
 
-
     bookedCount: {
       type: Number,
       default: 0
@@ -61,13 +68,11 @@ const serviceSchema = new Schema(
       min: 0
     },
 
-
     ratingCount: {
       type: Number,
       default: 0,
       min: 0
     },
-
 
     ratingAverage: {
       type: Number,
@@ -82,12 +87,11 @@ const serviceSchema = new Schema(
   }
 );
 
-
-/* ======================
-   INDEXES
-====================== */
-serviceSchema.index({ seller: 1, status: 1 });
+serviceSchema.index({ provider: 1, status: 1 });
 serviceSchema.index({ category: 1, price: 1 });
+serviceSchema.index({ categoryPath: 1 });
+serviceSchema.index({ categoryPath: 1, price: 1 });
 
 const Service = mongoose.model("Service", serviceSchema);
+
 export default Service;

@@ -1,42 +1,12 @@
 import Joi from "joi";
-
+import { emailSchema, mongoIdSchema, otpSchema, passwordSchema, requiredMsg, userNameSchema } from "../../validationSchemas/general.schemas.js";
 
 export const registerSchema = Joi.object({
-  userName: Joi.string()
-    .alphanum()
-    .min(3)
-    .max(30)
-    .required()
-    .messages({
-      "string.base": "Username must be a string",
-      "string.empty": "Username is required",
-      "string.alphanum": "Username can only contain letters and numbers",
-      "string.min": "Username must be at least 3 characters",
-      "string.max": "Username must be at most 30 characters",
-      "any.required": "Username is required",
-    }),
+  userName: userNameSchema.required().messages(requiredMsg("userName")),
 
-  email: Joi.string()
-    .email()
-    .required()
-    .messages({
-      "string.base": "Email must be a string",
-      "string.empty": "Email is required",
-      "string.email": "Email must be a valid email address",
-      "any.required": "Email is required",
-    }),
+  email: emailSchema.required().messages(requiredMsg("email")),
 
-  password: Joi.string()
-    .min(6)
-    .max(128)
-    .required()
-    .messages({
-      "string.base": "Password must be a string",
-      "string.empty": "Password is required",
-      "string.min": "Password must be at least 6 characters",
-      "string.max": "Password must be less than 128 characters",
-      "any.required": "Password is required",
-    }),
+  password: passwordSchema.required().messages(requiredMsg("password")),
 })
 .required()
 .messages({
@@ -44,37 +14,11 @@ export const registerSchema = Joi.object({
 });
 
 export const loginSchema = Joi.object({
-  userName: Joi.string()
-    .alphanum()
-    .min(3)
-    .max(30)
-    .messages({
-      "string.base": "Username must be a string",
-      "string.empty": "Username cannot be empty",
-      "string.alphanum": "Username can only contain letters and numbers",
-      "string.min": "Username must be at least 3 characters",
-      "string.max": "Username must be at most 30 characters",
-    }),
+  userName: userNameSchema.optional(),
 
-  email: Joi.string()
-    .email()
-    .messages({
-      "string.base": "Email must be a string",
-      "string.empty": "Email cannot be empty",
-      "string.email": "Email must be a valid email address",
-    }),
+  email:emailSchema.optional(),
 
-  password: Joi.string()
-    .min(6)
-    .max(128)
-    .required()
-    .messages({
-      "string.base": "Password must be a string",
-      "string.empty": "Password is required",
-      "string.min": "Password must be at least 6 characters",
-      "string.max": "Password must be less than 128 characters",
-      "any.required": "Password is required",
-    }),
+  password: passwordSchema.required().messages(requiredMsg("password")),
 })
 .or("email", "userName")
 .messages({
@@ -83,64 +27,34 @@ export const loginSchema = Joi.object({
 
 
 export const forgotPasswordSchema = Joi.object({
-  email: Joi.string().email().required().messages({
-    "string.base": "Email must be a string",
-    "string.empty": "Email is required",
-    "string.email": "Email must be valid",
-    "any.required": "Email is required",
-  }),
+  email: emailSchema.required().messages(requiredMsg("email"))
 });
 
 
 export const verifyResetOtpSchema = Joi.object({
-  email: Joi.string().email().required().messages({
-    "string.base": "Email must be a string",
-    "string.empty": "Email is required",
-    "string.email": "Email must be valid",
-    "any.required": "Email is required",
-  }),
+  email: emailSchema.required().messages(requiredMsg("email")),
 
-  otp: Joi.string()
-    .length(6)
-    .pattern(/^[0-9]+$/)
-    .required()
-    .messages({
-      "string.base": "OTP must be a string",
-      "string.length": "OTP must be 6 digits",
-      "string.pattern.base": "OTP must contain only numbers",
-      "any.required": "OTP is required",
-    }),
+  otp:otpSchema.required().messages(requiredMsg("otp")),
 });
 
 export const resetPasswordSchema = Joi.object({
-  newPassword: Joi.string()
-    .min(6)
-    .max(128)
+  newPassword: passwordSchema
     .required()
-    .messages({
-      "string.base": "Password must be a string",
-      "string.min": "Password must be at least 6 characters",
-      "string.max": "Password must be less than 128 characters",
-      "any.required": "New password is required",
-    }),
+    .messages(requiredMsg("password")),
 });
 
 
 export const resendResetOtpSchema = Joi.object({
-  email: Joi.string().email().required().messages({
-    "string.base": "Email must be a string",
-    "string.email": "Email must be valid",
-    "any.required": "Email is required",
-  }),
+  email: emailSchema
+    .required()
+    .messages(requiredMsg("email")),
 });
 
 
 export const verifyEmailSchema = Joi.object({
-  userId: Joi.string()
+  userId: mongoIdSchema
     .required()
-    .messages({
-      "any.required": "User ID is required",
-    }),
+    .messages(requiredMsg("userId")),
 
   token: Joi.string()
     .required()
@@ -152,9 +66,7 @@ export const verifyEmailSchema = Joi.object({
 
 
 export const resendVerifyEmailSchema = Joi.object({
-  userId: Joi.string()
+  userId: mongoIdSchema
     .required()
-    .messages({
-      "any.required": "User ID is required",
-    }),
+    .messages(requiredMsg("userId"))
 });

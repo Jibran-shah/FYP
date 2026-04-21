@@ -6,9 +6,11 @@ import {
   UnauthorizedError
 } from "../../../errors/Http.error.js";
 import {mediaService } from "../../media/media.service.js";
+import { syncRole } from "../../../utils/roleSync.utils.js";
+import { PROFILE_ROLE_TYPES } from "../../../constants/profile.constants.js";
 
 export const createSeller = async ({
-  user,
+  userId,
   shopLogo,
   shopName,
   shopDescription,
@@ -21,14 +23,11 @@ export const createSeller = async ({
 
   try {
 
-    const existing = await ProductSeller.findOne({ user }).session(session);
+    const existing = await ProductSeller.findOne({ user:userId }).session(session);
 
     if (existing) {
       throw new BadRequestError("User already has a seller profile");
     }
-
-
-    console.log("before resolve");
 
     const shopLogoAssetId = await mediaService.resolve({
       file: media?.file,
@@ -40,13 +39,20 @@ export const createSeller = async ({
 
     const seller = await ProductSeller.create(
       [{
-        user,
+        user:userId,
         shopName,
         shopDescription,
         shopLogo: shopLogoAssetId
       }],
       { session }
     );
+
+    await syncRole({
+      userId,
+      role:PROFILE_ROLE_TYPES.PRODUCT_SELLER,
+      Model:ProductSeller,
+      session
+    })
 
     await session.commitTransaction();
 
@@ -67,9 +73,11 @@ export const getAllSellers = async (filters = {}) => {
   if (filters.isApproved !== undefined) {
     query.isApproved = filters.isApproved === "true";
   }
-  if (filters.user) {
-    query.user = filters.user;
+
+  if (filters.shopName){
+    query.shopName = filters.shopName
   }
+
   const page = parseInt(filters.page || "1");
   const limit = parseInt(filters.limit || "20");
   const skip = (page - 1) * limit;
@@ -84,6 +92,12 @@ export const getAllSellers = async (filters = {}) => {
 // GET ONE
 export const getSellerById = async (id) => {
   return ProductSeller.findById(id).populate("user");
+};
+
+export const getSellerByUser = async (userId) => {
+  return ProductSeller.findOne({
+    user:userId
+  }).populate("user");
 };
 
 export const updateSeller = async (id, updates, userId) => {
@@ -155,6 +169,13 @@ export const deleteSeller = async (id, userId) => {
 
     await ProductSeller.deleteOne({ _id: id }).session(session);
 
+    syncRole({
+      userId:userId,
+      role:PROFILE_ROLE_TYPES.PRODUCT_SELLER,
+      Model:ProductSeller,
+      session
+    })
+
     await session.commitTransaction();
     return { success: true };
   } catch (err) {
@@ -173,26 +194,26 @@ export const bulkDeleteSellers = async (ids, userId) => {
   session.startTransaction();
 
   try {
+
     const sellers = await ProductSeller.find({
       _id: { $in: ids }
     }).session(session);
 
-    for (const seller of sellers) {
-      if (
-        userId &&
-        seller.user.toString() !== userId.toString()
-      ) {
-        throw new UnauthorizedError(
-          "Not allowed to delete some sellers"
-        );
-      }
-
-      await mediaService.remove(seller.shopLogo, userId, session);
-    }
-
     await ProductSeller.deleteMany({
       _id: { $in: ids }
     }).session(session);
+
+    for (const seller of sellers) {
+      
+      syncRole({
+        userId:seller.user,
+        role:PROFILE_ROLE_TYPES.PRODUCT_SELLER,
+        Model:ProductSeller,
+        session
+      })
+
+      await mediaService.remove(seller.shopLogo, seller.user, session);
+    }
 
     await session.commitTransaction();
     return { success: true };

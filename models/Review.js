@@ -1,11 +1,8 @@
 import mongoose from "mongoose";
+import { REVIEW_ENTITYS_ARRAY } from "../constants/review.constants";
+
 
 const { Schema } = mongoose;
-
-
-
-import mongoose from "mongoose";
-import { REVIEW_ENTITYS_ARRAY } from "../../constants/review.constants";
 
 const reviewSchema = new mongoose.Schema(
   {
@@ -15,7 +12,6 @@ const reviewSchema = new mongoose.Schema(
       required: true
     },
 
-    // 🔥 polymorphic reference
     entityId: {
       type: mongoose.Schema.Types.ObjectId,
       required: true,

@@ -1,11 +1,14 @@
 import Joi from "joi"
 import { objectId } from "../../../validationSchemas/mongodb.schemas.js";
+import { mongoIdSchema, requiredMsg } from "../../../validationSchemas/general.schemas.js";
 
 /* =========================================================
    🔹 PARAMS: /:id (GET, PATCH, DELETE)
 ========================================================= */
 export const mediaFileIdSchema = Joi.object({
-  id: Joi.string().custom(objectId).required()
+  id: mongoIdSchema
+   .required()
+   .messages(requiredMsg("id"))
 });
 
 /* =========================================================

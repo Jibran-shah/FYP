@@ -25,7 +25,8 @@ import { tokenConfig } from "../../utils/config.utils.js";
  * Register User Controller
  */
 export const registerUser = async (req, res) => {
-  const { userName, email, password } = req.body;
+
+  const { userName, email, password } = req.validated?.body;
 
   const { user, accessToken, refreshToken } = await register(userName, email, password);
 
@@ -54,7 +55,7 @@ export const registerUser = async (req, res) => {
  * Login User Controller
  */
 export const loginUser = async (req, res) => {
-  const { userName, email, password } = req.body;
+  const { userName, email, password } = req.validated?.body;
 
   const { user, accessToken, refreshToken } = await login(userName, email, password);
 
@@ -142,7 +143,7 @@ export const logoutAll = async (req, res) => {
  * Send otp for changing password
  */
 export const forgotPassword = async (req, res) => {
-  const { email } = req.body;
+  const { email } = req.validated?.body;
 
   await forgotPasswordService(email);
 
@@ -154,7 +155,7 @@ export const forgotPassword = async (req, res) => {
 
 
 export const verifyResetOtp = async (req, res) => {
-  const { email, otp } = req.body;
+  const { email, otp } = req.validated?.body;
   const { resetToken } = await verifyResetOtpService(email, otp);
   const {reset} = tokenConfig()
   const resetTtlSeconds = parseExpiresToSeconds(reset.expiry)
@@ -169,7 +170,7 @@ export const verifyResetOtp = async (req, res) => {
 export const resetPassword = async (req, res) => {
 
   const resetToken = req.cookies?.resetToken;
-  const { newPassword } = req.body;
+  const { newPassword } = req.validated?.body;
 
   if (!resetToken) {
     throw new InvalidTokenError("Reset token missing");
@@ -188,7 +189,7 @@ export const resetPassword = async (req, res) => {
 
 export const resendResetOtp = async (req, res) => {
 
-  const { email } = req.body;
+  const { email } = req.validated?.body;
 
   await resendResetOtpService(email);
 
@@ -206,7 +207,7 @@ export const resendResetOtp = async (req, res) => {
  * Example: GET /verify-email?token=abc123
  */
 export const verifyEmail = async (req, res) => {
-  const { userId, token } = req.query;
+  const { userId, token } = req.validated?.query;
 
   if (!token) {
     throw new InvalidTokenError("Verification token missing");
@@ -226,7 +227,7 @@ export const verifyEmail = async (req, res) => {
  * Resend Verification Email
  */
 export const resendVerifyEmail = async (req, res) => {
-  const { userId } = req.body;
+  const { userId } = req.validated.body;
 
   await resendVerifyEmailService(userId);
 

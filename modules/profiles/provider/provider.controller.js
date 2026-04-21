@@ -6,19 +6,20 @@ import {
     getProviderById as getProviderByIdService,
     updateProvider as updateProviderService,
     deleteProvider as deleteProviderService,
-    bulkDeleteProviders as bulkDeleteProvidersService
+    bulkDeleteProviders as bulkDeleteProvidersService,
+    updateProviderByUser as updateProviderByUserService
 } from "./provider.service.js";
 
 // ------------------------
 // CREATE ServiceProvider
 // ------------------------
 export const createServiceProvider = async (req, res) => {
-    const payload = req.body;
+    const payload = req.validated?.body;
     const userId = req.user?.id;
 
     const serviceProvider = await createProviderService({
       ...payload,
-      user: userId
+      userId
     });
 
     return res.status(201).json({ serviceProvider });
@@ -28,7 +29,7 @@ export const createServiceProvider = async (req, res) => {
 // READ ALL
 // ------------------------
 export const getAllServiceProviders = async (req, res) => {
-  const filters = req.query || {};
+  const filters = req.validated?.query || {};
 
   const providers = await getAllProvidersService(filters);
 
@@ -39,7 +40,7 @@ export const getAllServiceProviders = async (req, res) => {
 // READ ONE
 // ------------------------
 export const getServiceProviderById = async (req, res) => {
-  const { id } = req.params;
+  const { id } = req.validated?.params;
 
   const provider = await getProviderByIdService(id);
 
@@ -54,12 +55,23 @@ export const getServiceProviderById = async (req, res) => {
 // UPDATE
 // ------------------------
 export const updateServiceProvider = async (req, res) => {
-    const { id } = req.params;
-    const updates = req.body;
-    const userId = req.user ? req.user._id : null;
-
+    const { id } = req.validated?.params;
+    const updates = req.validated?.body;
+    const userId = req.user?.id || null;
     const updatedProvider = await updateProviderService(
       id,
+      updates,
+      userId
+    );
+
+    return res.status(200).json({ serviceProvider: updatedProvider });
+};
+
+export const updateServiceProviderByUser = async (req, res) => {
+    const updates = req.validated?.body;
+    const userId = req.user?.id || null;
+
+    const updatedProvider = await updateProviderByUserService(
       updates,
       userId
     );
@@ -71,8 +83,8 @@ export const updateServiceProvider = async (req, res) => {
 // DELETE SINGLE
 // ------------------------
 export const deleteServiceProvider = async (req, res) => {
-    const { id } = req.params;
-    const userId = req.user ? req.user._id : null;
+    const { id } = req.validated?.params;
+    const userId = req.user?.id || null;
 
     await deleteProviderService(id, userId);
 
@@ -85,8 +97,8 @@ export const deleteServiceProvider = async (req, res) => {
 // BULK DELETE
 // ------------------------
 export const bulkDeleteServiceProviders = async (req, res) => {
-    const { ids } = req.body;
-    const userId = req.user ? req.user._id : null;
+    const { ids } = req.validated?.body;
+    const userId = req.user?.id || null;
 
     if (!ids || !Array.isArray(ids) || ids.length === 0) {
       return res.status(400).json({ error: "No provider IDs provided" });

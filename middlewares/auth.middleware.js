@@ -7,6 +7,7 @@ import { UnauthorizedError, ForbiddenError } from "../errors/index.js";
  * Attaches decoded payload to req.user
  */
 export const protect = (options = {}) => {
+  
   const { isProfileCompleteCheck = true } = options;
 
   return (req, res, next) => {

@@ -66,3 +66,8 @@ export const otpSchema =  Joi.string()
 export const mongoIdSchema = Joi.string()
     .custom(objectId)
 
+
+export const mongoIdOrNullSchema =Joi.alternatives().try(
+  mongoIdSchema,
+  Joi.valid(null)
+)

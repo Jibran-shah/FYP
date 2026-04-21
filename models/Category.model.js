@@ -1,12 +1,32 @@
 import mongoose from "mongoose";
+import {
+  BadRequestError,
+  NotFoundError
+} from "../errors/index.js";
+
+import {
+  CATEGORY_HIERARCHY_LEVEL,
+  CATEGORY_HIERARCHY_LEVEL_ARRAY,
+  CATEGORY_APPLIES_TO,
+  CATEGORY_APPLIES_TO_ARRAY
+} from "../constants/category.constants.js";
 
 const { Schema } = mongoose;
 
+/* =========================================================
+   HELPERS
+========================================================= */
+const generateSlug = (name) =>
+  name.toLowerCase().trim().replace(/\s+/g, "-");
+
+const escapeRegex = (str) =>
+  str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+/* =========================================================
+   SCHEMA
+========================================================= */
 const categorySchema = new Schema(
   {
-    /* ======================
-       CORE INFO
-    ====================== */
     name: {
       type: String,
       required: true,
@@ -26,9 +46,6 @@ const categorySchema = new Schema(
       lowercase: true
     },
 
-    /* ======================
-       TREE STRUCTURE
-    ====================== */
     parentCategory: {
       type: Schema.Types.ObjectId,
       ref: "Category",
@@ -36,38 +53,31 @@ const categorySchema = new Schema(
       index: true
     },
 
-    /*
-      Materialized path examples:
-
-      products
-      products/electronics
-      products/electronics/laptops
-      services
-      services/web-development
-      services/web-development/react
-    */
     path: {
       type: String,
-      required: true,
+      required: true
+    },
+
+    depth: {
+      type: Number,
+      default: 0,
       index: true
     },
 
-    /* ======================
-       TYPE CONTROL (ROOT LEVEL ONLY)
-    ====================== */
-    type: {
+    hierarchyLevel: {
       type: String,
-      enum: ["root", "product", "service"],
-      default: "product",
+      enum: CATEGORY_HIERARCHY_LEVEL_ARRAY,
+      default: CATEGORY_HIERARCHY_LEVEL.ROOT,
       index: true
     },
 
-    /* ======================
-       SOFT DELETE
-    ====================== */
-    isDeleted: {
-      type: Boolean,
-      default: false,
+    appliesTo: {
+      type: [String],
+      enum: CATEGORY_APPLIES_TO_ARRAY,
+      default: [
+        CATEGORY_APPLIES_TO.PRODUCT,
+        CATEGORY_APPLIES_TO.SERVICE
+      ],
       index: true
     }
   },
@@ -76,83 +86,98 @@ const categorySchema = new Schema(
   }
 );
 
-/* ======================
-   UNIQUE NAME UNDER SAME PARENT
-====================== */
-categorySchema.index(
-  { name: 1, parentCategory: 1 },
-  { unique: true }
-);
 
-/* ======================
-   FAST SUBTREE QUERIES
-====================== */
-categorySchema.index({ path: 1 });
 
-/* ======================
-   PATH GENERATION
-====================== */
-categorySchema.pre("validate", async function (next) {
-  const slug = this.name.toLowerCase().replace(/\s+/g, "-");
 
-  // Root category
+/* =========================================================
+   PRE VALIDATE
+========================================================= */
+categorySchema.pre("validate", async function () {
+  const slug = generateSlug(this.name);
+
+  /* ROOT */
   if (!this.parentCategory) {
     this.slug = slug;
     this.path = slug;
-    this.type = "root";
-    return next();
+    this.depth = 0;
+    this.hierarchyLevel = CATEGORY_HIERARCHY_LEVEL.ROOT;
+    return;
   }
 
-  // Prevent self-parenting
+  /* SELF CHECK */
   if (this.parentCategory.equals(this._id)) {
-    return next(new Error("Category cannot be its own parent"));
+    throw new BadRequestError("Category cannot be its own parent")
   }
 
-  // Load parent
   const parent = await this.constructor.findById(this.parentCategory);
 
   if (!parent) {
-    return next(new Error("Parent category not found"));
+    throw new NotFoundError("Parent category not found");
   }
 
+  /* BUILD TREE */
   this.slug = slug;
-  this.type = parent.type;
+  this.depth = parent.depth + 1;
+  this.path = `${parent.path}/${slug}`;
 
-  this.path = parent.path + "/" + slug;
-
-  next();
+  /* LEVEL LOGIC */
+  if (this.depth === 0) {
+    this.hierarchyLevel = CATEGORY_HIERARCHY_LEVEL.ROOT;
+  } else if (this.depth === 1) {
+    this.hierarchyLevel = CATEGORY_HIERARCHY_LEVEL.CATEGORY;
+  } else {
+    this.hierarchyLevel = CATEGORY_HIERARCHY_LEVEL.SUBCATEGORY;
+  }
 });
 
-/* ======================
-   UPDATE CHILD PATHS IF NAME CHANGES
-====================== */
-categorySchema.pre("save", async function (next) {
-  if (!this.isModified("name")) return next();
+/* =========================================================
+   PRE SAVE
+========================================================= */
+categorySchema.pre("save", async function () {
+  if (!this.isModified("name")) return;
 
   const old = await this.constructor.findById(this._id);
-  if (!old) return next();
+  if (!old) return;
 
   const oldPath = old.path;
-  const newSlug = this.name.toLowerCase().replace(/\s+/g, "-");
+  const newSlug = generateSlug(this.name);
+
+  let newPath;
 
   if (!this.parentCategory) {
-    this.path = newSlug;
+    newPath = newSlug;
+    this.depth = 0;
   } else {
     const parent = await this.constructor.findById(this.parentCategory);
-    this.path = parent.path + "/" + newSlug;
+
+    if (!parent) {
+      throw new NotFoundError("Parent category not found");
+    }
+
+    newPath = `${parent.path}/${newSlug}`;
+    this.depth = parent.depth + 1;
   }
 
-  // Update children
+  this.slug = newSlug;
+  this.path = newPath;
+
+  /* UPDATE CHILDREN */
+  const safeOldPath = escapeRegex(oldPath);
+
   await this.constructor.updateMany(
-    { path: { $regex: `^${oldPath}/` } },
+    { path: { $regex: `^${safeOldPath}/` } },
     [
       {
         $set: {
           path: {
             $concat: [
-              this.path,
+              newPath,
               {
-                $substrCP: ["$path", oldPath.length, { $strLenCP: "$path" }]
+                $substrCP: [
+                  "$path",
+                  oldPath.length,
+                  { $strLenCP: "$path" }
+                ]
               }
             ]
           }
@@ -160,18 +185,15 @@ categorySchema.pre("save", async function (next) {
       }
     ]
   );
-
-  next();
 });
 
-/* ======================
-   AUTO FILTER SOFT-DELETED
-====================== */
-categorySchema.pre(/^find/, function (next) {
-  this.where({ isDeleted: false });
-  next();
-});
+
+categorySchema.index(
+  { name: 1, parentCategory: 1 },
+  { unique: true }
+);
+
+categorySchema.index({ path: 1 });
 
 const Category = mongoose.model("Category", categorySchema);
-
 export default Category;

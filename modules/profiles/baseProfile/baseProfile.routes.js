@@ -3,11 +3,12 @@ import * as profileController from "./baseProfile.controller.js";
 import { validate } from "../../../middlewares/validation.middleware.js";
 import {
   createProfileSchema,
-  updateProfileSchema,
-  validateFileOrFileId
+  getProfilesQuerySchema,
+  profileIdSchema,
+  updateProfileSchema
 } from "./baseProfile.validation.js";
 import { protect} from "../../../middlewares/auth.middleware.js";
-import { optionalUpload} from "../../../middlewares/multer.middleware.js";
+import { optionalUpload } from "../../../middlewares/multer.middleware.js";
 import {
   parseMedia,
   strictMediaContext
@@ -46,7 +47,6 @@ router.put(
   parseMedia("file", {
     allowedMimeTypes: ["image/jpeg", "image/png", "image/webp"]
   }),
-  validateFileOrFileId, // 🔥 ADD THIS
   strictMediaContext({
     entity: "profile",
     usageType: "profileImage",
@@ -65,8 +65,8 @@ router.delete("/", profileController.deleteProfile);
 
 router.get("/byUser", profileController.getProfileByUser);
 
-router.get("/:id", profileController.getProfileById);
+router.get("/:id",validate(profileIdSchema,"params"), profileController.getProfileById);
 
-router.get("/",profileController.getProfilesByQuery);
+router.get("/",validate(getProfilesQuerySchema,"query"),profileController.getProfilesByQuery);
 
 export default router;
