@@ -1,4 +1,4 @@
-import ProfileModel from "../models/Profile.model.js";
+import ProfileModel from "../models/BaseProfile.model.js";
 
 export const syncRole = async ({
     userId,

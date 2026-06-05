@@ -28,6 +28,40 @@ const productSellerSchema = new mongoose.Schema(
       maxlength: 1000
     },
 
+    location: {
+      type: {
+        type: String,
+        enum: ["Point"],
+        default: "Point"
+      },
+      coordinates: {
+        type: [Number], // [longitude, latitude]
+        validate: {
+          validator: function (value) {
+            return (
+              Array.isArray(value) &&
+              value.length === 2 &&
+              value[0] >= -180 &&
+              value[0] <= 180 &&
+              value[1] >= -90 &&
+              value[1] <= 90
+            );
+          },
+          message:
+            "Coordinates must be [longitude, latitude] with valid ranges."
+        }
+      },
+
+      address: {
+        country: { type: String, trim: true, default:"" },
+        state: { type: String, trim: true, default:"" },
+        city: { type: String, trim: true, default:"" },
+        area: { type: String, trim: true, default:"" },
+        fullAddress: { type: String, trim: true, default:"" }
+      }
+      
+    },
+
     isApproved: {
       type: Boolean,
       default: false
@@ -63,4 +97,9 @@ const productSellerSchema = new mongoose.Schema(
   }
 );
 
+
+productSellerSchema.index({ location: "2dsphere" });
+
+
 export default mongoose.model("ProductSeller", productSellerSchema);
+

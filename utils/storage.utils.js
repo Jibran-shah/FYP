@@ -2,6 +2,7 @@ import fs from "fs/promises";
 import path from "path";
 import { InternalServerError } from "../errors/index.js";
 import crypto from "crypto";
+import { BACKEND_URL, BASE_ROOT } from "../constants/app.constants.js";
 
 
 export const uploadToStorage = async (
@@ -31,7 +32,7 @@ export const uploadToStorage = async (
 
   return {
     storageKey: `${folder}/${safeUserId}/${fileName}`,
-    url: `/uploads/${folder}/${safeUserId}/${fileName}`
+    url: `${BACKEND_URL}/uploads/${folder}/${safeUserId}/${fileName}`
   };
 };
 

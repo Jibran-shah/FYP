@@ -64,9 +64,10 @@ export const createMediaFile = async ({ file, uploadedBy }, session = null) => {
       if (uploaded?.storageKey) {
         await deleteFromStorage(uploaded.storageKey);
       }
-      throw logger.error("failed media file creation",{
+      logger.error("failed media file creation",{
         error:err
       });
+      throw err;
     }
   };
 

@@ -1,4 +1,7 @@
 import express from "express";
+import { createUpload } from "../../../middlewares/upload.middleware.js";
+import { mediaContext } from "../../../middlewares/mediaContext.middlware.js";
+
 import {
   createProductSeller,
   getAllProductSellers,
@@ -8,95 +11,138 @@ import {
   bulkDeleteProductSellers,
   getMySellerProfile
 } from "./seller.controller.js";
-import { validate } from "../../../middlewares/validation.middleware.js";
+
+import { validate } from "../../../middlewares/validate.middleware.js";
 import {
   createProductSellerSchema,
   updateProductSellerSchema,
   productSellerIdParamSchema,
-  bulkDeleteProductSellerSchema
+  bulkDeleteProductSellerSchema,
+  getAllProductSellerQuerySchema
 } from "./seller.validation.js";
-import { optionalUpload} from "../../../middlewares/multer.middleware.js";
-import { parseMedia, strictMediaContext } from "../../../middlewares/media.middlware.js";
-import { protect } from "../../../middlewares/auth.middleware.js";
-import { asyncHandler } from "../../../utils/asyncHandler.js";
 
+import { protect, restrictTo } from "../../../middlewares/protect.middleware.js";
+import { asyncHandler } from "../../../utils/asyncHandler.js";
+import { USER_ROLES } from "../../../constants/user.constants.js";
+import { MEDIA_USAGE_TYPES, NAMESPACES } from "../../../constants/media.constants.js";
 
 const router = express.Router();
-router.use(protect())
 
-// ----------------------
-// BULK DELETE
-// ----------------------
+/* =========================================================
+   BULK DELETE
+========================================================= */
 router.post(
   "/bulk-delete",
+  protect(),
+  restrictTo(USER_ROLES.ADMIN),
   validate(bulkDeleteProductSellerSchema),
-  bulkDeleteProductSellers
+  asyncHandler(bulkDeleteProductSellers)
 );
 
-// ----------------------
-// CREATE
-// ----------------------
+/* =========================================================
+   CREATE SELLER (WITH MEDIA CONTEXT)
+========================================================= */
 router.post(
   "/",
-  optionalUpload("file"),
-  parseMedia("file", {
-    allowedMimeTypes: ["image/jpeg", "image/png", "image/webp"]
+  protect({ requireBaseProfile: true }),
+
+  // 1. FILE UPLOAD
+  createUpload({
+    fields: [
+      {
+        name: "shopLogoFile",
+        maxCount: 1,
+        required: false
+      }
+    ]
   }),
-  strictMediaContext({
-    entity: "productSeller",
-    usageType: "shopLogo",
-    namespace: "productSeller"
+
+  // 2. MEDIA CONTEXT (IMPORTANT)
+  mediaContext({
+    fields: {
+      shopLogoFile: {
+        namespace: NAMESPACES.SELLER_LOGO,
+        usageType: MEDIA_USAGE_TYPES.SHOP_LOGO
+      }
+    }
   }),
+
+  // 3. VALIDATION
   validate(createProductSellerSchema),
+
+  // 4. CONTROLLER
   asyncHandler(createProductSeller)
 );
 
-// ----------------------
-// GET ALL
-// ----------------------
-router.get("/", getAllProductSellers);
+/* =========================================================
+   GET ALL
+========================================================= */
+router.get(
+  "/",
+  validate(getAllProductSellerQuerySchema, "query"),
+  asyncHandler(getAllProductSellers)
+);
 
-// ----------------------
-// GET ONE
-// ----------------------
+/* =========================================================
+   GET MY PROFILE
+========================================================= */
+router.get(
+  "/me",
+  protect({ requireProductSellerProfile: true }),
+  asyncHandler(getMySellerProfile)
+);
 
-router.get("/me",getMySellerProfile)
-
+/* =========================================================
+   GET BY ID
+========================================================= */
 router.get(
   "/:id",
   validate(productSellerIdParamSchema, "params"),
-  getProductSellerById
+  asyncHandler(getProductSellerById)
 );
 
-
-
-
-// ----------------------
-// UPDATE
-// ----------------------
+/* =========================================================
+   UPDATE SELLER (WITH MEDIA CONTEXT)
+========================================================= */
 router.put(
   "/:id",
-  optionalUpload("file"),
-  parseMedia("file", {
-    allowedMimeTypes: ["image/jpeg", "image/png", "image/webp"]
+  protect(),
+
+  // 1. FILE UPLOAD
+  createUpload({
+    fields: [
+      {
+        name: "shopLogoFile",
+        maxCount: 1,
+        required: false
+      }
+    ]
   }),
-  strictMediaContext({
-    entity: "productSeller",
-    usageType: "shopLogo",
-    namespace: "productSeller"
+
+  // 2. MEDIA CONTEXT
+  mediaContext({
+    fields: {
+      shopLogoFile: {
+        namespace: NAMESPACES.SELLER_LOGO,
+        usageType: MEDIA_USAGE_TYPES.SHOP_LOGO
+      }
+    }
   }),
+
   validate(productSellerIdParamSchema, "params"),
-  validate(updateProductSellerSchema),
-  updateProductSeller
+  validate(updateProductSellerSchema, "body"),
+
+  asyncHandler(updateProductSeller)
 );
 
-// ----------------------
-// DELETE
-// ----------------------
+/* =========================================================
+   DELETE SELLER
+========================================================= */
 router.delete(
   "/:id",
+  protect(),
   validate(productSellerIdParamSchema, "params"),
-  deleteProductSeller
+  asyncHandler(deleteProductSeller)
 );
 
 export default router;

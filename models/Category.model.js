@@ -10,6 +10,7 @@ import {
   CATEGORY_APPLIES_TO,
   CATEGORY_APPLIES_TO_ARRAY
 } from "../constants/category.constants.js";
+import { MODELS } from "../constants/models.constants.js";
 
 const { Schema } = mongoose;
 
@@ -48,7 +49,7 @@ const categorySchema = new Schema(
 
     parentCategory: {
       type: Schema.Types.ObjectId,
-      ref: "Category",
+      ref: MODELS.CATEGORY,
       default: null,
       index: true
     },
@@ -113,6 +114,14 @@ categorySchema.pre("validate", async function () {
 
   if (!parent) {
     throw new NotFoundError("Parent category not found");
+  }
+
+  const pathParts = parent.path.split("/");
+
+  if (pathParts.includes(slug)) {
+    throw new BadRequestError(
+      "Category name already exists in this hierarchy branch"
+    );
   }
 
   /* BUILD TREE */
@@ -189,11 +198,11 @@ categorySchema.pre("save", async function () {
 
 
 categorySchema.index(
-  { name: 1, parentCategory: 1 },
+  { slug: 1, parentCategory: 1 },
   { unique: true }
 );
 
 categorySchema.index({ path: 1 });
 
-const Category = mongoose.model("Category", categorySchema);
+const Category = mongoose.model(MODELS.CATEGORY, categorySchema);
 export default Category;

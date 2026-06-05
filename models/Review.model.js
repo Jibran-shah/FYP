@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import { REVIEW_ENTITYS_ARRAY } from "../constants/review.constants";
+import { REVIEW_ENTITYS_ARRAY } from "../constants/review.constants.js";
 
 
 const { Schema } = mongoose;

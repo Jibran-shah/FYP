@@ -1,4 +1,6 @@
 import mongoose from "mongoose";
+import { MEDIA_PROVIDERS, MEDIA_PROVIDERS_ARRAY } from "../constants/media.constants.js";
+import { MODELS } from "../constants/models.constants.js";
 
 const mediaFileSchema = new mongoose.Schema(
   {
@@ -6,8 +8,8 @@ const mediaFileSchema = new mongoose.Schema(
     provider: {
       name: {
         type: String,
-        enum: ["local", "aws-s3", "cloudinary"],
-        default: "local",
+        enum: MEDIA_PROVIDERS_ARRAY,
+        default: MEDIA_PROVIDERS.LOCAL,
         index: true
       },
       bucket: String,
@@ -66,7 +68,7 @@ const mediaFileSchema = new mongoose.Schema(
     // 👤 Ownership
     uploadedBy: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
+      ref: MODELS.USER,
       required:true,
       index: true
     },
@@ -92,4 +94,4 @@ const mediaFileSchema = new mongoose.Schema(
 mediaFileSchema.index({ uploadedBy: 1, createdAt: -1 });
 
 
-export const MediaFile = mongoose.model("MediaFile", mediaFileSchema);
+export const MediaFile = mongoose.model(MODELS.MEDIA_FILE, mediaFileSchema);

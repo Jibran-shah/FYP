@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { MODELS } from "../constants/models.constants";
 
 const logSchema = new mongoose.Schema({
   level: String,
@@ -7,4 +8,4 @@ const logSchema = new mongoose.Schema({
   timestamp: { type: Date, default: Date.now },
 });
 
-export default mongoose.model("Log", logSchema);
+export default mongoose.model(MODELS.LOG, logSchema);

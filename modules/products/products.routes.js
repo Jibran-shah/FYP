@@ -1,8 +1,11 @@
 import express from "express";
 import { asyncHandler } from "../../utils/asyncHandler.js";
 import * as productController from "./products.controller.js";
-import { protect } from "../../middlewares/auth.middleware.js";
-import { validate } from "../../middlewares/validation.middleware.js";
+import { protect } from "../../middlewares/protect.middleware.js";
+import { validate } from "../../middlewares/validate.middleware.js";
+
+import { createUpload } from "../../middlewares/upload.middleware.js";
+import { mediaContext } from "../../middlewares/mediaContext.middlware.js";
 
 import {
   createProductSchema,
@@ -13,46 +16,112 @@ import {
 
 const router = express.Router();
 
-router.use(protect())
-
+/* =========================================================
+   CREATE PRODUCT (WITH IMAGES)
+========================================================= */
 router.post(
   "/",
+  protect({ requireProductSellerProfile: true }),
+
+  // 1. FILE UPLOAD
+  createUpload({
+    fields: [
+      {
+        name: "images",
+        maxCount: 10,
+        required: false
+      }
+    ]
+  }),
+
+  // 2. MEDIA CONTEXT
+  mediaContext({
+    fields: {
+      images: {
+        namespace: "PRODUCT_IMAGES",
+        usageType: "PRODUCT_IMAGE"
+      }
+    }
+  }),
+
   validate(createProductSchema),
   asyncHandler(productController.createProduct)
 );
 
+/* =========================================================
+   GET ALL PRODUCTS
+========================================================= */
 router.get(
   "/",
-  validate(productQuerySchema,"query"),
+  validate(productQuerySchema, "query"),
   asyncHandler(productController.getProducts)
 );
 
+/* =========================================================
+   MY PRODUCTS
+========================================================= */
 router.get(
   "/seller/me",
+  protect({ requireProductSellerProfile: true }),
   asyncHandler(productController.getProductsBySeller)
 );
 
+/* =========================================================
+   BY CATEGORY
+========================================================= */
 router.get(
   "/category/:categoryId",
   asyncHandler(productController.getByCategory)
 );
 
+/* =========================================================
+   SINGLE PRODUCT
+========================================================= */
 router.get(
   "/:id",
-  validate(idParamSchema,"params"),
+  validate(idParamSchema, "params"),
   asyncHandler(productController.getProductById)
 );
 
+/* =========================================================
+   UPDATE PRODUCT (WITH IMAGES)
+========================================================= */
 router.patch(
   "/:id",
-  validate(idParamSchema,"params"),
-  validate(updateProductSchema,"body"),
+  protect({ requireProductSellerProfile: true }),
+
+  createUpload({
+    fields: [
+      {
+        name: "images",
+        maxCount: 10,
+        required: false
+      }
+    ]
+  }),
+
+  mediaContext({
+    fields: {
+      images: {
+        namespace: "PRODUCT_IMAGES",
+        usageType: "PRODUCT_IMAGE"
+      }
+    }
+  }),
+
+  validate(idParamSchema, "params"),
+  validate(updateProductSchema, "body"),
+
   asyncHandler(productController.updateProduct)
 );
 
+/* =========================================================
+   DELETE PRODUCT
+========================================================= */
 router.delete(
   "/:id",
-  validate(idParamSchema,"param"),
+  protect({ requireProductSellerProfile: true }),
+  validate(idParamSchema, "params"),
   asyncHandler(productController.deleteProduct)
 );
 

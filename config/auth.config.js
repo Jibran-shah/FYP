@@ -1,3 +1,9 @@
+/**
+ * Copyright (c) 2026 Jibran Shah
+ * For educational use only.
+ * Commercial use prohibited without permission.
+ */
+
 export const AUTH_CONFIG = {
   ACCESS_TOKEN: {
     EXPIRY: process.env.JWT_ACCESS_EXPIRES || "15m",

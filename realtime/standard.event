@@ -1,0 +1,7 @@
+{
+  eventType,
+  userId,
+  timestamp,
+  correlationId,
+  payload
+}

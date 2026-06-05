@@ -1,11 +1,12 @@
 import mongoose from "mongoose";
 import { PROFILE_ROLE_TYPES_ARRAY, PROFILE_ROLE_TYPES } from "../constants/profile.constants.js";
+import { MODELS } from "../constants/models.constants.js";
 
 const profileSchema = new mongoose.Schema(
   {
     user: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
+      ref: MODELS.USER,
       required: true,
       unique: true
     },
@@ -17,9 +18,14 @@ const profileSchema = new mongoose.Schema(
       maxlength: 80
     },
 
-    profileImage: {
+    profileAvatar: {
       type: mongoose.Schema.Types.ObjectId,
-      ref:"MediaAsset"
+      ref:MODELS.MEDIA_ASSET
+    },
+
+    profileCover: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref:MODELS.MEDIA_ASSET
     },
 
     phone: {
@@ -56,4 +62,4 @@ const profileSchema = new mongoose.Schema(
   }
 );
 
-export default mongoose.model("Profile", profileSchema);
+export default mongoose.model(MODELS.PROFILE, profileSchema);

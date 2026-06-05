@@ -14,12 +14,13 @@ import providerProfileRoutes from "./modules/profiles/provider/provider.routes.j
 import categoryRoutes from "./modules/categories/categories.routes.js"
 import productRoutes from "./modules/products/products.routes.js"
 import serviceRoutes from "./modules/services/services.routes.js"
+import reviewRoutes from "./modules/reviews/reviews.routes.js"
 import { requestIdMiddleware } from "./middlewares/requestId.middleware.js";
 import { httpLogger } from "./middlewares/httpLogger.middleware.js";
 import {logger} from "./config/logger.js";
 import { globalRateLimiter } from "./rateLimitors.js";
-
-const rootRoute = "/api/";
+import { EMAIL_CONFIG } from "./config/email.config.js";
+import { BASE_ROOT } from "./constants/app.constants.js";
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -36,20 +37,20 @@ const startServer = async () => {
       "/uploads",
       express.static(path.join(process.cwd(), "uploads"))
     );
-    app.use(rootRoute+"auth",authRoutes);
-    app.use(rootRoute+"products",productRoutes)
-    app.use(rootRoute+"services",serviceRoutes)
-    app.use(rootRoute+"categories",categoryRoutes)
-    app.use(rootRoute+"media/files",mediaFileRoutes);
-    app.use(rootRoute+"media/assets",mediaAssetRoutes);
-    app.use(rootRoute+"profile/base",basePorfileRoutes);
-    app.use(rootRoute+"profile/seller",sellerProfileRoutes)
-    app.use(rootRoute+"profile/provider",providerProfileRoutes)
+    app.use(BASE_ROOT+"/auth",authRoutes);
+    app.use(BASE_ROOT+"/products",productRoutes)
+    app.use(BASE_ROOT+"/services",serviceRoutes)
+    app.use(BASE_ROOT+"/categories",categoryRoutes)
+    app.use(BASE_ROOT+"/media/files",mediaFileRoutes);
+    app.use(BASE_ROOT+"/media/assets",mediaAssetRoutes);
+    app.use(BASE_ROOT+"/profiles/buyers",basePorfileRoutes);
+    app.use(BASE_ROOT+"/profiles/sellers",sellerProfileRoutes);
+    app.use(BASE_ROOT+"/profiles/providers",providerProfileRoutes);
+    app.use(BASE_ROOT+"/reviews",reviewRoutes);
     app.get("/", (req, res) => {
       res.send("API Running");
     });
     app.use(errorHandler);
-    app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
   } catch (err) {
     logger.error(err);
     process.exit(1);
@@ -57,4 +58,6 @@ const startServer = async () => {
 };
 
 startServer()
+
+export default app;
 

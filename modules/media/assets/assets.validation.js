@@ -1,5 +1,5 @@
 import Joi from "joi";
-import { MEDIA_USAGE_TYPES } from "../../../constants/media.constants.js";
+import { MEDIA_USAGE_TYPES, MEDIA_USAGE_TYPES_ARRAY } from "../../../constants/media.constants.js";
 import { mongoIdSchema, requiredMsg } from "../../../validationSchemas/general.schemas.js";
 
 
@@ -16,7 +16,7 @@ export const createMediaAssetSchema = Joi.object({
     
 
   usageType: Joi.string()
-  .valid(...MEDIA_USAGE_TYPES)
+  .valid(...MEDIA_USAGE_TYPES_ARRAY)
   .optional(),
 
   namespace: Joi.string()
@@ -39,7 +39,7 @@ export const updateMediaAssetSchema = Joi.object({
     .optional(),
 
   usageType: Joi.string()
-  .valid(...MEDIA_USAGE_TYPES)
+  .valid(...MEDIA_USAGE_TYPES_ARRAY)
   .optional(),
 
   namespace: Joi.string()
@@ -71,6 +71,6 @@ export const getAllMediaAssetsQuerySchema = Joi.object({
   limit: Joi.number().integer().min(1).max(100).optional(),
 // TODO extract the type enum from all place to a centralized place
   usageType: Joi.string()
-  .valid(...MEDIA_USAGE_TYPES)
+  .valid(...MEDIA_USAGE_TYPES_ARRAY)
   .optional()
 });

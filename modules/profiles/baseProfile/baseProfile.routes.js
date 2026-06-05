@@ -1,40 +1,54 @@
 import express from "express";
 import * as profileController from "./baseProfile.controller.js";
-import { validate } from "../../../middlewares/validation.middleware.js";
+import { validate } from "../../../middlewares/validate.middleware.js";
 import {
   createProfileSchema,
   getProfilesQuerySchema,
   profileIdSchema,
   updateProfileSchema
 } from "./baseProfile.validation.js";
-import { protect} from "../../../middlewares/auth.middleware.js";
-import { optionalUpload } from "../../../middlewares/multer.middleware.js";
-import {
-  parseMedia,
-  strictMediaContext
-} from "../../../middlewares/media.middlware.js";
+import { protect} from "../../../middlewares/protect.middleware.js";
+import {mediaContext} from "../../../middlewares/mediaContext.middlware.js"
+import { FILE_MAX_SIZES, MEDIA_USAGE_TYPES, NAMESPACES } from "../../../constants/media.constants.js";
+import { createUpload } from "../../../middlewares/upload.middleware.js";
 
 
 const router = express.Router();
 
-router.use(protect({
-  isProfileCompleteCheck:false
-}));
 
 // ======================
 // CREATE PROFILE
 // ======================
 router.post(
   "/",
-  optionalUpload("file"),
-  parseMedia("file", {
-    allowedMimeTypes: ["image/jpeg", "image/png", "image/webp"]
-  }),
-  strictMediaContext({
-    entity: "profile",
-    usageType: "profileImage",
-    namespace: "profile",
-    ownerFrom: "user"
+  protect(),
+  createUpload({fields:[
+    {
+      name:"profileAvatar",
+      maxCount:1,
+      required:false,
+      types:["image/jpeg","image/png"],
+      maxSize:FILE_MAX_SIZES.PROFILE_AVATAR
+    },
+    {
+      name:"profileCover",
+      maxCount:1,
+      required:false,
+      types:["image/jpeg","image/png"],
+      maxSize:FILE_MAX_SIZES.PROFILE_COVER
+    }
+  ]}),
+  mediaContext({
+    fields:{
+      profileAvatar:{
+        namespace:NAMESPACES.PROFILE_AVATAR,
+        usageType:MEDIA_USAGE_TYPES.PROFILE_AVATAR
+      },
+      profileCover:{
+        namespace:NAMESPACES.PROFILE_COVER,
+        usageType:MEDIA_USAGE_TYPES.PROFILE_COVER
+      }
+    }
   }),
   validate(createProfileSchema),
   profileController.createProfile
@@ -43,27 +57,42 @@ router.post(
 
 router.put(
   "/",
-  optionalUpload("file"),
-  parseMedia("file", {
-    allowedMimeTypes: ["image/jpeg", "image/png", "image/webp"]
-  }),
-  strictMediaContext({
-    entity: "profile",
-    usageType: "profileImage",
-    namespace: "profile",
-    ownerFrom: "user"
+  protect({requireBaseProfile:true}),
+  createUpload({fields:[
+    {
+      name:"profileAvatar",
+      maxCount:1,
+      required:false,
+      types:["image/jpeg","image/png"],
+      maxSize:FILE_MAX_SIZES.PROFILE_AVATAR
+    },
+    {
+      name:"profileCover",
+      maxCount:1,
+      required:false,
+      types:["image/jpeg","image/png"],
+      maxSize:FILE_MAX_SIZES.PROFILE_COVER
+    }
+  ]}),
+  mediaContext({
+    fields:{
+      profileAvatar:{
+        namespace:NAMESPACES.PROFILE_AVATAR,
+        usageType:MEDIA_USAGE_TYPES.PROFILE_AVATAR
+      },
+      profileCover:{
+        namespace:NAMESPACES.PROFILE_COVER,
+        usageType:MEDIA_USAGE_TYPES.PROFILE_COVER
+      }
+    }
   }),
   validate(updateProfileSchema),
   profileController.updateProfile
 );
 
+router.delete("/",protect({requireBaseProfile:true}), profileController.deleteProfile);
 
-// ======================
-// DELETE
-// ======================
-router.delete("/", profileController.deleteProfile);
-
-router.get("/byUser", profileController.getProfileByUser);
+router.get("/byUser",protect({requireBaseProfile:true}), profileController.getProfileByUser);
 
 router.get("/:id",validate(profileIdSchema,"params"), profileController.getProfileById);
 

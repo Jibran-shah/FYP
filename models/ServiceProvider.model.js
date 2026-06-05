@@ -42,6 +42,39 @@ const serviceProviderSchema = new Schema(
       min: 0,
     },
 
+    location: {
+      type: {
+        type: String,
+        enum: ["Point"],
+        default: "Point"
+      },
+      coordinates: {
+        type: [Number], // [longitude, latitude]
+        validate: {
+          validator: function (value) {
+            return (
+              Array.isArray(value) &&
+              value.length === 2 &&
+              value[0] >= -180 &&
+              value[0] <= 180 &&
+              value[1] >= -90 &&
+              value[1] <= 90
+            );
+          },
+          message:
+            "Coordinates must be [longitude, latitude] with valid ranges."
+        }
+      },
+
+      address: {
+        country: { type: String, trim: true },
+        state: { type: String, trim: true },
+        city: { type: String, trim: true },
+        area: { type: String, trim: true },
+        fullAddress: { type: String, trim: true }
+      }
+      
+    },
 
     isApproved: {
       type: Boolean,

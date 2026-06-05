@@ -1,7 +1,7 @@
-export const SERVICE_STATUSES = {
+export const SERVICE_STATUSES = Object.freeze({
     AVAILABLE:"available",
     INACTIVE:"inactive",
     BOOKED:"booked"
-}
+})
 
-export const SERVICE_STATUS_ARRAY = [SERVICE_STATUSES.AVAILABLE, SERVICE_STATUSES.INACTIVE, SERVICE_STATUSES.BOOKED];
+export const SERVICE_STATUS_ARRAY = Object.freeze(Object.values(SERVICE_STATUSES))

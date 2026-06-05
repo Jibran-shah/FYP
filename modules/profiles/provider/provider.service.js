@@ -1,99 +1,164 @@
 import mongoose from "mongoose";
 import ServiceProvider from "../../../models/ServiceProvider.model.js";
 import { BadRequestError, NotFoundError, UnauthorizedError } from "../../../errors/Http.error.js";
-import ProfileModel from "../../../models/Profile.model.js";
+import ProfileModel from "../../../models/BaseProfile.model.js";
 import { syncRole } from "../../../utils/roleSync.utils.js";
 import { PROFILE_ROLE_TYPES } from "../../../constants/profile.constants.js";
-
-// ------------------------
-// CREATE Provider
-// ------------------------
+import User from "../../../models/User.model.js";
+import { generateAccessToken, generateRefreshToken, parseExpiresToSeconds } from "../../../utils/token.utils.js";
+import { refreshSessionSystem } from "../../../utils/session.utils.js";
+import { AUTH_CONFIG } from "../../../config/auth.config.js";
 export const createProvider = async ({
-    userId,
-    title,
-    description,
-    skills,
-    experienceYears
+  user,
+  title,
+  description,
+  skills,
+  experienceYears,
+  locationLat,
+  locationLn,
+  fullAddress = ""
 }) => {
-    const session = await mongoose.startSession();
-    session.startTransaction();
-    
-    try {
-        const provider = await ServiceProvider.create([{
-            user:userId,
-            title,
-            description,
-            skills,
-            experienceYears
-        }], { session });
+  const session = await mongoose.startSession();
+  session.startTransaction();
 
-        // ✅ Add provider role
-        await syncRole({
-            userId,
-            role:PROFILE_ROLE_TYPES.SERVICE_PROVIDER,
-            Model:ServiceProvider,
-            session
-        })
+  try {
 
-        await session.commitTransaction();
-        session.endSession();
+    const location =
+        locationLat !== undefined && locationLn !== undefined
+            ? {
+                type: "Point",
+                coordinates: [locationLn, locationLat]
+            }
+        : undefined;
 
-        return provider[0];
-    } catch (err) {
-        await session.abortTransaction();
-        session.endSession();
+    const provider = await ServiceProvider.create(
+      [
+        {
+          user: user.id,
+          title,
+          description,
+          skills,
 
-        if (err.code === 11000) {
-            throw new BadRequestError("Service provider already exists");
+          location: {
+            ...location,
+            address: {
+              fullAddress
+            }
+          },
+
+          experienceYears
         }
-        throw err;
+      ],
+      { session }
+    );
+
+    await syncRole({
+      userId: user.id,
+      role: PROFILE_ROLE_TYPES.SERVICE_PROVIDER,
+      Model: ServiceProvider,
+      session
+    });
+
+    const _user = await User.findOneAndUpdate(
+      { _id: user.id},
+      { serviceProviderProfile: provider[0]._id },
+      { session, new: true }
+    );
+
+    const sessionId = refreshSessionSystem .generateId();
+
+    const accessToken = generateAccessToken({ user:_user });
+
+    const refreshToken = generateRefreshToken({ user:_user, sessionId });
+
+    const ttl = parseExpiresToSeconds(AUTH_CONFIG.REFRESH_TOKEN.EXPIRY);
+
+    await refreshSessionSystem .save(user.id, sessionId, token);
+
+    await session.commitTransaction();
+    session.endSession();
+
+    return { provider: provider[0], refreshToken, accessToken };
+  } catch (err) {
+    await session.abortTransaction();
+    session.endSession();
+    const error = parseMongoDuplicateError(err);
+    if(error){
+      throw new ConflictError(`${error.field} already exists`, [
+        {
+          field:error.field,
+          message:error.message,
+        },
+      ]);
+    }else{
+          throw err
     }
+  }
 };
-// ------------------------
-// GET ALL Providers
-// ------------------------
+
+
 export const getAllProviders = async (filters = {}) => {
-    const query = {};
+  const query = {};
 
-    // Filter by approval
-    if (filters.isApproved !== undefined) {
-        query.isApproved =
-        filters.isApproved === true || filters.isApproved === "true";
+  if (filters.isApproved !== undefined) {
+    query.isApproved =
+      filters.isApproved === true || filters.isApproved === "true";
+  }
+
+  if (filters.user) {
+    if (!mongoose.Types.ObjectId.isValid(filters.user)) {
+      throw new Error("Invalid user ID");
     }
+    query.user = filters.user;
+  }
 
-    // Filter by user
-    if (filters.user) {
-        if (!mongoose.Types.ObjectId.isValid(filters.user)) {
-        throw new Error("Invalid user ID");
+  if (filters.skills) {
+    const skillsArray = Array.isArray(filters.skills)
+      ? filters.skills
+      : filters.skills.split(",").map(s => s.trim().toLowerCase());
+
+    query.skills = { $in: skillsArray };
+  }
+
+  if (filters.minExperience) {
+    query.experienceYears = { $gte: Number(filters.minExperience) };
+  }
+
+  /* =========================================================
+     GEO SEARCH (NEARBY PROVIDERS)
+  ========================================================= */
+  let geoQuery = null;
+
+  if (filters.lng && filters.lat && filters.radius) {
+    geoQuery = {
+      location: {
+        $near: {
+          $geometry: {
+            type: "Point",
+            coordinates: [Number(filters.lng), Number(filters.lat)]
+          },
+          $maxDistance: Number(filters.radius) // meters
         }
-        query.user = filters.user;
-    }
+      }
+    };
+  }
 
-    // Filter by skills (any match)
-    if (filters.skills) {
-        const skillsArray = Array.isArray(filters.skills)
-            ? filters.skills
-            : filters.skills.split(",").map(s => s.trim().toLowerCase());
-        query.skills = { $in: skillsArray };
-    }
+  const finalQuery = geoQuery
+    ? { ...query, ...geoQuery }
+    : query;
 
-    // Filter by experience
-    if (filters.minExperience) {
-        query.experienceYears = { $gte: Number(filters.minExperience) };
-    }
+  const page = parseInt(filters.page || "1");
+  const limit = parseInt(filters.limit || "20");
+  const skip = (page - 1) * limit;
 
-    const page = parseInt(filters.page || "1");
-    const limit = parseInt(filters.limit || "20");
-    const skip = (page - 1) * limit;
+  const providers = await ServiceProvider.find(finalQuery)
+    .populate("user", "name email avatar")
+    .sort({ createdAt: -1 })
+    .skip(skip)
+    .limit(limit);
 
-    const providers = await ServiceProvider.find(query)
-        .populate("user", "name email avatar")
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(limit);
-
-    return providers;
-}
+  return providers;
+};
 
 // ------------------------
 // GET Provider By ID
@@ -102,43 +167,54 @@ export const getProviderById = async (id) => {
     const provider = await ServiceProvider.findById(id).populate("user", "name email avatar");
     return provider;
 }
-
-// ------------------------
-// UPDATE Provider
-// ------------------------
 export const updateProvider = async (id, updates, userId) => {
+  const provider = await ServiceProvider.findById(id);
+  if (!provider) throw new NotFoundError("Service provider not found");
 
-    const provider = await ServiceProvider.findById(id);
-    if (!provider) throw new NotFoundError("Service provider not found");
+  if (provider.user.toString() !== userId.toString()) {
+    throw new UnauthorizedError("Not allowed to update this service provider");
+  }
 
-    // Ownership check
-    if (provider.user.toString() !== userId.toString()) {
-        throw new UnauthorizedError("Not allowed to update this service provider");
-    }
+  const {
+    title,
+    description,
+    skills,
+    experienceYears,
+    isApproved,
 
-    const {
-        title,
-        description,
-        skills,
-        experienceYears,
-        isApproved,
-    } = updates;
+    locationLat,
+    locationLn,
+    fullAddress
+  } = updates;
 
-    // Allowed updates
-    if (title !== undefined) provider.title = title;
-    if (description !== undefined) provider.description = description;
-    if (skills !== undefined) provider.skills = skills;
-    if (experienceYears !== undefined)
-        provider.experienceYears = experienceYears;
+  if (title !== undefined) provider.title = title;
+  if (description !== undefined) provider.description = description;
+  if (skills !== undefined) provider.skills = skills;
+  if (experienceYears !== undefined) provider.experienceYears = experienceYears;
 
-    // 🔥 Business rules (important)
-    // Ideally only admin updates these
-    if (isApproved !== undefined) provider.isApproved = isApproved;
+  if (isApproved !== undefined) provider.isApproved = isApproved;
 
+  /* =========================================================
+     LOCATION UPDATE (partial safe update)
+  ========================================================= */
+  if (locationLat !== undefined && locationLn !== undefined) {
+    provider.location = {
+      ...provider.location,
+      type: "Point",
+      coordinates: [locationLn, locationLat]
+    };
+  }
 
-    await provider.save();
-    return provider;
-}
+  if (fullAddress !== undefined) {
+    provider.location.address = {
+      ...provider.location?.address,
+      fullAddress
+    };
+  }
+
+  await provider.save();
+  return provider;
+};
 
 
 export const updateProviderByUser = async (updates, userId) => {
@@ -152,6 +228,8 @@ export const updateProviderByUser = async (updates, userId) => {
         throw new UnauthorizedError("Not allowed to update this service provider");
     }
 
+
+
     const {
         title,
         description,
@@ -171,6 +249,20 @@ export const updateProviderByUser = async (updates, userId) => {
     // Ideally only admin updates these
     if (isApproved !== undefined) provider.isApproved = isApproved;
 
+    if (locationLat !== undefined && locationLn !== undefined) {
+  provider.location = {
+    ...provider.location,
+    type: "Point",
+    coordinates: [locationLn, locationLat]
+  };
+}
+
+if (fullAddress !== undefined) {
+  provider.location.address = {
+    ...provider.location?.address,
+    fullAddress
+  };
+}
 
     await provider.save();
     return provider;
@@ -180,37 +272,40 @@ export const updateProviderByUser = async (updates, userId) => {
 // ------------------------
 // DELETE Provider
 // ------------------------
-export const deleteProvider = async (id, userId) => {
+export const deleteProvider = async (user) => {
 
     const session = await mongoose.startSession();
     session.startTransaction();
 
     try {
-        const provider = await ServiceProvider.findById(id).session(session);
+        const provider = await ServiceProvider.findById(user.id).session(session);
+
         if (!provider) throw new NotFoundError("Service provider not found");
-
-        if (provider.user.toString() !== userId.toString()) {
-            throw new UnauthorizedError("Not allowed to delete this service provider");
-        }
-
-        await provider.deleteOne({ session });
-
-        // ✅ Check if any providers remain
-        const remaining = await ServiceProvider.countDocuments({ user: userId }).session(session);
 
         await provider.deleteOne({ session });
 
         await syncRole({
-            userId,
+            userId:user.id,
             role: PROFILE_ROLE_TYPES.SERVICE_PROVIDER,
             Model: ServiceProvider,
             session
         });
 
+        const _user = await UserModel.findOneAndUpdate({_id:user.id},{serviceProviderProfile:null},{session, new: true})
+
+        const sessionId = refreshSessionSystem .generateId();
+    
+        const accessToken = generateAccessToken({ user:_user });
+        
+        const refreshToken = generateRefreshToken({ user:_user, sessionId});
+    
+        const ttl = parseExpiresToSeconds(AUTH_CONFIG.REFRESH_TOKEN.EXPIRY);
+        await refreshSessionSystem .save(user.id, sessionId, token);
+
         await session.commitTransaction();
         session.endSession();
 
-        return { success: true };
+        return {refreshToken,accessToken };
 
     } catch (err) {
         await session.abortTransaction();
@@ -218,6 +313,7 @@ export const deleteProvider = async (id, userId) => {
         throw err;
     }
 };
+
 
 export const bulkDeleteProviders = async (ids) => {
 
@@ -246,6 +342,11 @@ export const bulkDeleteProviders = async (ids) => {
                 Model: ServiceProvider,
                 session
             });
+            await UserModel.findByIdAndUpdate(userId,{
+                serviceProviderProfile:null
+            },{session})
+    
+            await refreshSessionSystem .deleteAll(userId);
         }
 
         await session.commitTransaction();

@@ -10,44 +10,55 @@ import {
   bulkDeleteServiceProviders,
   updateServiceProviderByUser
 } from "./provider.controller.js";
-import { validate } from "../../../middlewares/validation.middleware.js";
+import { validate } from "../../../middlewares/validate.middleware.js";
 import { bulkDeleteServiceProviderSchema, createServiceProviderSchema, serviceProviderIdParamSchema, updateServiceProviderSchema } from "./provider.validation.js";
-import { protect } from "../../../middlewares/auth.middleware.js";
+import { protect, restrictTo } from "../../../middlewares/protect.middleware.js";
+import { USER_ROLES } from "../../../constants/user.constants.js";
+import { asyncHandler } from "../../../utils/asyncHandler.js";
 
 
-router.use(protect())
 
-// 🔥 STATIC ROUTES FIRST
-router.post("/bulk-delete",validate(bulkDeleteServiceProviderSchema) , bulkDeleteServiceProviders);
+router.post("/bulk-delete",
+  protect(),
+  restrictTo(USER_ROLES.ADMIN),
+  validate(bulkDeleteServiceProviderSchema) , 
+  asyncHandler(bulkDeleteServiceProviders)
+);
 
-// GET ALL + CREATE
-router.get("/", getAllServiceProviders);
-router.post("/",validate(createServiceProviderSchema), createServiceProvider);
+
+router.get("/", asyncHandler(getAllServiceProviders));
+
+router.post("/",
+  protect({requireBaseProfile:true}),
+  validate(createServiceProviderSchema), 
+  asyncHandler(createServiceProvider));
 
 router.put(
   "/byUser",
+  protect({requireServiceProvider:true}),
   validate(updateServiceProviderSchema),
-  updateServiceProviderByUser
+  asyncHandler(updateServiceProviderByUser)
 );
 
-// 🔥 DYNAMIC ROUTES LAST
 router.put(
   "/:id",
+  protect({requireServiceProvider:true}),
   validate(serviceProviderIdParamSchema, "params"),
   validate(updateServiceProviderSchema),
-  updateServiceProvider
+  asyncHandler(updateServiceProvider)
 );
 
 router.delete(
   "/:id",
+  protect({requireServiceProvider:true}),
   validate(serviceProviderIdParamSchema, "params"),
-  deleteServiceProvider
+  asyncHandler(deleteServiceProvider)
 );
 
 router.get(
   "/:id",
   validate(serviceProviderIdParamSchema, "params"),
-  getServiceProviderById
+  asyncHandler(getServiceProviderById)
 );
 
 export default router;

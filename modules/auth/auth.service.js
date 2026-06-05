@@ -7,17 +7,12 @@ import {
   parseExpiresToSeconds,
   verifyResetToken,
   generateResetToken,
-  storeResetToken,
-  verifyStoredResetToken,
-  deleteResetToken
+  resetTokenStore,
+  generateToken
 } from "../../utils/token.utils.js";
 import {
-  generateSessionId,
-  saveSession,
-  getSession,
-  deleteAllSessions,
-  deleteSession
-} from "../../utils/session.js";
+  refreshSessionSystem
+} from "../../utils/session.utils.js";
 import {
   BadRequestError,
   ConflictError,
@@ -25,33 +20,21 @@ import {
   UnauthorizedError
 } from "../../errors/index.js";
 import { 
-  checkOtpRequestLimit,
-  increaseOtpAttempts,
-  checkOtpAttempts,
-  resetOtpAttempts,
-  generateOtp
+  generateOtp,
+  otpAttempts,
+  otpRequests,
+  otpStore
  } from "../../utils/otp.utils.js";
-
- import {
-  setOtp,
-  verifyOtp,
-  deleteOtp
-} from "../../utils/otp.utils.js";
 
 import { emailService } from "../email/email.service.js";
 import {
-  setEmailVerificationToken,
-  getEmailVerificationToken,
-  deleteEmailVerificationToken,
-  assertEmailVerified,
-  checkEmailVerificationCooldown,
-  setEmailVerificationCooldown,
-  generateToken,
-  generateVerificationLink
+  emailVerificationStore
 } from "../../utils/email.utils.js";
 import { logger } from "../../config/logger.js";
 import { AUTH_CONFIG } from "../../config/auth.config.js";
-import { emailConfig } from "../../utils/config.utils.js";
+import { USER_PROFILE_STATUS } from "../../constants/user.constants.js";
+import { OtpRequestLimitError, OtpTooManyAttemptsError } from "../../errors/Otp.error.js";
+import { parseMongoDuplicateError } from "../../utils/errorHandling.utils.js";
 
 /**
  * Register a new user and create session
@@ -66,27 +49,39 @@ export const register = async (userName, email, password) => {
     user = await User.create({
       userName,
       email,
-      password,
-      profileStatus: "INCOMPLETE"
+      password
     });
   } catch (err) {
-    if (err.code === 11000) {
-      throw new ConflictError("Email or username already exists");
+    const error = parseMongoDuplicateError(err);
+    if(error){
+      throw new ConflictError(`${error.field} already exists`, [
+      {
+        field:error.field,
+        message:error.message,
+      },
+    ]);
+    }else{
+      throw err
     }
-    throw err;
   }
 
-  const sessionId = generateSessionId();
+  const sessionId = refreshSessionSystem.generateId();
 
-  const accessToken = generateAccessToken(user._id, user.role);
-  const refreshToken = generateRefreshToken(user._id, user.role, sessionId);
+  const accessToken = generateAccessToken({user});
+
+  const refreshToken = generateRefreshToken({user,sessionId});
+
 
   const ttl = parseExpiresToSeconds(AUTH_CONFIG.REFRESH_TOKEN.EXPIRY);
-  await saveSession(user._id.toString(), sessionId, refreshToken, ttl);
 
-  // ✅ non-blocking email
-  sendVerifyEmailService(user._id)
-  .catch(err => logger.error("Verification email failed:",err));
+  await refreshSessionSystem.save(user._id, sessionId, refreshToken);
+
+  await emailService.sendVerificationEmail({
+    to: user.email,
+    name: user.userName,
+    userId:user._id
+  });
+
 
   return { user, accessToken, refreshToken, sessionId };
 };
@@ -104,30 +99,38 @@ export const login = async (userName,email, password) => {
 
   let user;
 
-  if (email) {
-    user = await User.findOne({ email }).select("+password");
-  } else if (userName) {
+  if (email)
+    user = await User.findOne({ email }).select("+password")
+  else if (userName)
     user = await User.findOne({ userName }).select("+password");
+
+  if(!user) throw new UnauthorizedError("provided identifier not registered");
+
+  if (!user.isEmailVerified) {
+    throw new BadRequestError(
+      "Please verify your email before logging in",
+      {
+        userId: user._id,
+      }
+    );
   }
-  if (!user) throw new UnauthorizedError("Invalid credentials");
-
-  assertEmailVerified(user);
-
-  // 2️⃣ Compare password
 
   const isMatch = await user.comparePassword(password);
 
   if (!isMatch) throw new UnauthorizedError("Invalid credentials");
 
-  const sessionId = generateSessionId();
-  // 3️⃣ Generate access token
-  const accessToken = generateAccessToken( user._id, user.role,user.profileStatus );
-  // 4️⃣ Generate refresh token
-  const refreshToken = generateRefreshToken( user._id,user.role, sessionId,user.profileStatus);
+  const sessionId = refreshSessionSystem.generateId();
+  
+
+  const accessToken = generateAccessToken({ user });
+  
+
+  const refreshToken = generateRefreshToken({ user , sessionId });
 
   // 5️⃣ Store refresh token in Redis with TTL
   const ttl = parseExpiresToSeconds(process.env.JWT_REFRESH_EXPIRES);
-  await saveSession(user._id, sessionId, refreshToken, ttl);
+  
+  await refreshSessionSystem.save(user._id, sessionId, refreshToken);
 
   // 6️⃣ Return data
   return { user, accessToken, refreshToken};
@@ -142,17 +145,22 @@ export const login = async (userName,email, password) => {
  * @returns {Object} { accessToken, refreshToken, sessionId, userId }
  */
 export const refreshTokenService = async (refreshTokenCookie) => {
-if (!refreshTokenCookie)
+
+  if (!refreshTokenCookie)
     throw new UnauthorizedError(
       "Refresh token missing"
     );
 
-  // 1️⃣ Verify refresh token
-  const { userId, role, sessionId,profileStatus } = verifyRefreshToken(refreshTokenCookie);
+  const { 
+    userId, 
+    role, 
+    sessionId, 
+    baseProfile, 
+    productSeller, 
+    serviceProvider} = verifyRefreshToken(refreshTokenCookie);
 
   // 2️⃣ Check Redis for valid session
-  const storedToken = await getSession(userId, sessionId);
-
+  const storedToken = await refreshSessionSystem.get(userId, sessionId);
 
   if (!storedToken)
     throw new UnauthorizedError(
@@ -164,13 +172,20 @@ if (!refreshTokenCookie)
       "Invalid session"
     );
 
-  // 3️⃣ Generate new tokens
-  const newAccessToken = generateAccessToken(userId,role,profileStatus); // add role if needed
-  const newRefreshToken = generateRefreshToken(userId,role, sessionId,profileStatus );
+  const user = {
+    _id:userId,
+    role,
+    baseProfile,
+    serviceProvider,
+    productSeller,
+  }
 
-  // 4️⃣ Store new refresh token in Redis (rotate token)
+  const newAccessToken = generateAccessToken({ user});
+
+  const newRefreshToken = generateRefreshToken({ user, sessionId });
+
   const ttl = parseExpiresToSeconds(AUTH_CONFIG.REFRESH_TOKEN.EXPIRY);
-  await saveSession(userId, sessionId, newRefreshToken, ttl);
+  await refreshSessionSystem.save(userId, sessionId, newRefreshToken);
 
   return {
     accessToken: newAccessToken,
@@ -191,8 +206,9 @@ export const logoutService = async (refreshTokenCookie) => {
       );
   const payload = verifyRefreshToken(refreshTokenCookie);
   const {userId,sessionId} = payload;
-  await deleteSession(userId, sessionId);
+  await refreshSessionSystem.delete(userId, sessionId);
 };
+
 
 /**
  * Logout from all sessions
@@ -204,31 +220,23 @@ export const logoutAllService = async (refreshTokenCookie) => {
       "Refresh token missing"
     );
   const {userId} = verifyRefreshToken(refreshTokenCookie);
-  await deleteAllSessions(userId);
+  await refreshSessionSystem.deleteAll(userId);
 };
+
+
 export const forgotPasswordService = async (email) => {
   if (!email) throw new BadRequestError("Email is required");
-
   const user = await User.findOne({ email });
   if (!user) return;
-
   const userId = user._id.toString();
-
-  await checkOtpRequestLimit(userId);
-
-  const otp = generateOtp();
-
-  await setOtp(userId, otp);
-
   await emailService.sendForgotPasswordEmail({
     to: email,
-    otp,
     userName: user.userName,
     userId,
   });
-
   return true;
 };
+
 
 export const verifyResetOtpService = async (email, otp) => {
   if (!email || !otp)
@@ -237,26 +245,31 @@ export const verifyResetOtpService = async (email, otp) => {
   const user = await User.findOne({ email });
   if (!user) throw new NotFoundError("User not found");
 
-  const userId = user._id.toString();
+  const userId = user._id;
 
-  await checkOtpAttempts(userId);
+  const count = await otpAttempts.get(userId);
 
-  const isValid = await verifyOtp(userId, otp);
+  if ((count ?? 0) >= AUTH_CONFIG.OTP.MAX_ATTEMPTS) {
+    throw new OtpTooManyAttemptsError({ userId, count });
+  }
+
+  const isValid = await otpStore.verify(userId, otp);
 
   if (!isValid) {
-    await increaseOtpAttempts(userId);
+    await otpAttempts.incr(userId);
     throw new UnauthorizedError("Invalid OTP");
   }
 
-  await deleteOtp(userId);
-  await resetOtpAttempts(userId);
+  await  otpStore.delete(userId);
+  await otpAttempts.reset(userId);
 
   const { token } = generateResetToken(userId, email);
 
-  await storeResetToken(userId, token);
+  await resetTokenStore.set(userId, token);
 
   return { resetToken: token };
 };
+
 
 export const resetPasswordService = async (resetToken, newPassword) => {
   if (!resetToken || !newPassword) {
@@ -270,7 +283,7 @@ export const resetPasswordService = async (resetToken, newPassword) => {
   }
 
   const userId = decoded.userId.toString();
-  const isValid = await verifyStoredResetToken(userId, resetToken);
+  const isValid = await resetTokenStore.verify(userId, resetToken);
 
   if (!isValid) {
     throw new UnauthorizedError("Invalid or expired reset token");
@@ -282,11 +295,12 @@ export const resetPasswordService = async (resetToken, newPassword) => {
   user.password = newPassword;
   await user.save();
 
-  await deleteResetToken(userId);
-  await deleteAllSessions(userId);
+  await resetTokenStore.delete(userId);
+  await refreshSessionSystem.deleteAll(userId);
 
   return true;
 };
+
 
 export const resendResetOtpService = async (email) => {
   if (!email) throw new BadRequestError("Email required");
@@ -296,13 +310,17 @@ export const resendResetOtpService = async (email) => {
 
   const userId = user._id.toString();
 
-  await deleteOtp(userId);
+  await otpStore.delete(userId);
 
-  await checkOtpRequestLimit(userId);
+  const count = await otpRequests.incr(userId);
+
+  if (count > AUTH_CONFIG.OTP.REQUEST_LIMIT) {
+    throw new OtpRequestLimitError({ userId, count });
+  }
 
   const otp = generateOtp();
 
-  await setOtp(userId, otp);
+  await otpStore.set(userId, otp);
 
   await emailService.sendForgotPasswordEmail({
     to: email,
@@ -315,25 +333,23 @@ export const resendResetOtpService = async (email) => {
 };
 
 
+
 export const verifyEmailService = async (userId, token) => {
   if (!userId || !token)
     throw new BadRequestError("Missing verification data");
 
-  const storedToken = await getEmailVerificationToken(userId);
-
-  if (!storedToken)
-    throw new UnauthorizedError("Token expired or invalid");
-
-  if (storedToken !== token)
-    throw new UnauthorizedError("Invalid token");
-
   const user = await User.findById(userId);
   if (!user) throw new NotFoundError("User not found");
+
+  if(!emailVerificationStore.verify(userId,token)){
+    throw new UnauthorizedError("Invalid token");
+  }
 
   user.isEmailVerified = true;
   await user.save();
 
-  await deleteEmailVerificationToken(userId);
+
+  await emailVerificationStore.delete(userId);
 
   return true;
 };
@@ -342,22 +358,12 @@ export const verifyEmailService = async (userId, token) => {
 export const resendVerifyEmailService = async (userId) => {
   const user = await User.findById(userId);
 
-  if (!user) return;
-  if (user.isEmailVerified) return;
-
-  await checkEmailVerificationCooldown(userId);
-
-  const token = generateToken();
-
-  await setEmailVerificationToken(userId, token, emailVerifyTTL());
-  
-  await setEmailVerificationCooldown(userId, emailVerifyCooldown());
-
-  const link = generateVerificationLink(userId,token);
+  if (!user) throw new NotFoundError("User Not found");
+  if (user.isEmailVerified) throw new BadRequestError("Email already verified");
 
   await emailService.sendVerificationEmail({
     to: user.email,
-    userName: user.userName,
-    link
+    name: user.userName,
+    userId
   });
 };

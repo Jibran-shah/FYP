@@ -1,20 +1,48 @@
 import * as productSellerService from "./seller.service.js";
 import { NotFoundError } from "../../../errors/Http.error.js";
+import { parseExpiresToSeconds } from "../../../utils/token.utils.js";
+import { setCookie } from "../../../utils/cookie.js";
+import { AUTH_CONFIG } from "../../../config/auth.config.js";
 
-// CREATE
+
 export const createProductSeller = async (req, res) => {
-  const seller = await productSellerService.createSeller({
-    ...req.validated?.body,
-    userId: req.user?.id,
-    media: req.media,
-    mediaContext: req.mediaContext
-  });
+  const { seller, refreshToken, accessToken } =
+    await productSellerService.createSeller({
+      ...req.validated?.body,
+      user: req.user,
+      shopLogoFile: req.media?.shopLogoFile,
+      shopLogoId: req.validated?.body?.shopLogoId,
+      mediaContext: req.mediaContext
+    });
+
+  const refreshTtlSeconds = parseExpiresToSeconds(
+    AUTH_CONFIG.REFRESH_TOKEN.EXPIRY
+  );
+
+  setCookie(
+    res,
+    AUTH_CONFIG.REFRESH_TOKEN.COOKIE_NAME,
+    refreshToken,
+    refreshTtlSeconds
+  );
+
+  const accessTtlSeconds = parseExpiresToSeconds(
+    AUTH_CONFIG.ACCESS_TOKEN.EXPIRY
+  );
+
+  setCookie(
+    res,
+    AUTH_CONFIG.ACCESS_TOKEN.COOKIE_NAME,
+    accessToken,
+    accessTtlSeconds
+  );
 
   return res.status(201).json({
     success: true,
     productSeller: seller
   });
 };
+
 
 // READ ALL
 export const getAllProductSellers = async (req, res) => {
@@ -51,13 +79,14 @@ export const getMySellerProfile = async(req,res) =>{
   });
 }
 
-// UPDATE
+
 export const updateProductSeller = async (req, res) => {
   const updated = await productSellerService.updateSeller(
     req.validated?.params.id,
     {
       ...req.validated?.body,
-      media: req.media,
+      shopLogoFile: req.media?.shopLogo || [],
+      shopLogoId: req.validated?.body?.shopLogoId,
       mediaContext: req.mediaContext
     },
     req.user?.id
@@ -69,12 +98,18 @@ export const updateProductSeller = async (req, res) => {
   });
 };
 
+
 // DELETE
 export const deleteProductSeller = async (req, res) => {
-  await productSellerService.deleteSeller(
-    req.validated?.params.id,
-    req.user?.id
+  const {refreshToken,accessToken} = await productSellerService.deleteSeller(
+    req.user
   );
+    
+  const refreshTtlSeconds = parseExpiresToSeconds(AUTH_CONFIG.REFRESH_TOKEN.EXPIRY);
+  setCookie(res, AUTH_CONFIG.REFRESH_TOKEN.COOKIE_NAME, refreshToken, refreshTtlSeconds);
+    
+  const accessTtlSeconds = parseExpiresToSeconds(AUTH_CONFIG.ACCESS_TOKEN.EXPIRY);
+  setCookie(res, AUTH_CONFIG.ACCESS_TOKEN.COOKIE_NAME, accessToken, accessTtlSeconds);
 
   return res.status(200).json({
     success: true,

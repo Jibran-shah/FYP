@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Realtime Socket Debugger</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      display: grid;
+      grid-template-columns: 400px 1fr;
+      gap: 20px;
+      padding: 20px;
+      background: #0f172a;
+      color: #e2e8f0;
+    }
+
+    .panel {
+      background: #111827;
+      padding: 15px;
+      border-radius: 10px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.3);
+    }
+
+    input, textarea, button {
+      width: 100%;
+      margin-top: 8px;
+      padding: 10px;
+      border-radius: 6px;
+      border: none;
+      outline: none;
+      font-family: monospace;
+    }
+
+    input, textarea {
+      background: #1f2937;
+      color: #fff;
+    }
+
+    button {
+      background: #2563eb;
+      color: white;
+      cursor: pointer;
+      font-weight: bold;
+    }
+
+    button:hover {
+      background: #1d4ed8;
+    }
+
+    textarea {
+      height: 120px;
+      resize: vertical;
+    }
+
+    #log {
+      height: 80vh;
+      overflow-y: auto;
+      background: #0b1220;
+      padding: 10px;
+      border-radius: 8px;
+      font-size: 12px;
+      white-space: pre-wrap;
+    }
+
+    .log-line {
+      margin-bottom: 8px;
+      border-left: 3px solid #3b82f6;
+      padding-left: 8px;
+    }
+
+    .title {
+      font-size: 18px;
+      font-weight: bold;
+      margin-bottom: 10px;
+      color: #60a5fa;
+    }
+
+    .section {
+      margin-bottom: 20px;
+    }
+  </style>
+</head>
+
+<body>
+
+<!-- LEFT PANEL -->
+<div class="panel">
+
+  <div class="section">
+    <div class="title">🔌 Connection</div>
+
+    <input id="url" value="http://localhost:5000" />
+    <input id="token" placeholder="Paste JWT access token here" />
+
+    <button onclick="connect()">Connect</button>
+  </div>
+
+  <div class="section">
+    <div class="title">📤 Emit Event</div>
+
+    <input id="emitEvent" placeholder="event name (e.g. chat.message.send)" />
+    <textarea id="emitPayload" placeholder='{"roomId":"123","content":"hello"}'></textarea>
+
+    <button onclick="emitEventFn()">Send Event</button>
+  </div>
+
+  <div class="section">
+    <div class="title">👂 Listen Event</div>
+
+    <input id="listenEvent" placeholder="event name (e.g. chat.message.send)" />
+    <button onclick="listenEventFn()">Add Listener</button>
+  </div>
+
+</div>
+
+<!-- RIGHT PANEL -->
+<div class="panel">
+  <div class="title">📡 Logs</div>
+  <div id="log"></div>
+</div>
+
+<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+
+<script>
+  let socket;
+
+  // =========================
+  // CONNECT
+  // =========================
+  function connect() {
+    const url = document.getElementById("url").value;
+    const token = document.getElementById("token").value;
+
+    socket = io(url, {
+      auth: {
+        token: token
+      }
+    });
+
+    socket.on("connect", () => {
+      log("✅ CONNECTED: " + socket.id);
+    });
+
+    socket.on("connect_error", (err) => {
+      log("❌ CONNECT ERROR: " + err.message);
+    });
+
+    socket.on("disconnect", () => {
+      log("⚠️ DISCONNECTED");
+    });
+  }
+
+  // =========================
+  // EMIT EVENT
+  // =========================
+  function emitEventFn() {
+    if (!socket) return alert("Not connected");
+
+    const event = document.getElementById("emitEvent").value;
+    const payloadText = document.getElementById("emitPayload").value;
+
+    let payload = {};
+
+    try {
+      payload = JSON.parse(payloadText || "{}");
+    } catch (err) {
+      return alert("Invalid JSON payload");
+    }
+
+    socket.emit(event, payload);
+
+    log("📤 EMIT: " + event + "\n" + JSON.stringify(payload, null, 2));
+  }
+
+  // =========================
+  // LISTEN EVENT
+  // =========================
+  function listenEventFn() {
+    if (!socket) return alert("Not connected");
+
+    const event = document.getElementById("listenEvent").value;
+
+    if (!event) return alert("Enter event name");
+
+    socket.on(event, (data) => {
+      log("📥 EVENT: " + event + "\n" + JSON.stringify(data, null, 2));
+    });
+
+    log("👂 Listening: " + event);
+  }
+
+  // =========================
+  // LOGGING
+  // =========================
+  function log(msg) {
+    const div = document.createElement("div");
+    div.className = "log-line";
+    div.textContent = msg;
+
+    const logBox = document.getElementById("log");
+    logBox.appendChild(div);
+    logBox.scrollTop = logBox.scrollHeight;
+  }
+</script>
+
+</body>
+</html>

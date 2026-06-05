@@ -1,16 +1,25 @@
 import * as profileService from "./baseProfile.service.js";
 import { NotFoundError } from "../../../errors/index.js";
 import { asyncHandler } from "../../../utils/asyncHandler.js";
+import { parseExpiresToSeconds } from "../../../utils/token.utils.js";
+import { clearCookie, setCookie } from "../../../utils/cookie.js";
+import { AUTH_CONFIG } from "../../../config/auth.config.js";
 
 // CREATE
 export const createProfile = asyncHandler(async (req, res) => {
 
-  const profile = await profileService.createProfile(
-    req.user.id,
+  const {profile,accessToken,refreshToken} = await profileService.createProfile(
+    req.user,
     req.validated?.body,
     req.media,
     req.mediaContext
   );
+  
+  const refreshTtlSeconds = parseExpiresToSeconds(AUTH_CONFIG.REFRESH_TOKEN.EXPIRY);
+  setCookie(res, AUTH_CONFIG.REFRESH_TOKEN.COOKIE_NAME, refreshToken, refreshTtlSeconds);
+  
+  const accessTtlSeconds = parseExpiresToSeconds(AUTH_CONFIG.ACCESS_TOKEN.EXPIRY);
+  setCookie(res, AUTH_CONFIG.ACCESS_TOKEN.COOKIE_NAME, accessToken, accessTtlSeconds);
 
   res.status(201).json({ success: true, data: profile });
 });
@@ -48,7 +57,10 @@ export const updateProfile = asyncHandler(async (req, res) => {
 
 // DELETE
 export const deleteProfile = asyncHandler(async (req, res) => {
-  const deleted = await profileService.deleteProfile(req.user.id);
-  if (!deleted) throw new NotFoundError("Profile not found");
+
+  await profileService.deleteProfile(req.user.id);
+  clearCookie(res,AUTH_CONFIG.REFRESH_TOKEN.COOKIE_NAME);
+  clearCookie(res,AUTH_CONFIG.ACCESS_TOKEN.COOKIE_NAME);
+
   res.json({ success: true, message: "Profile deleted successfully" });
 });

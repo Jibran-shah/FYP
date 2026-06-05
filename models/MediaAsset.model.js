@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
-import { DEFAULTS, MEDIA_USAGE_TYPES } from "../constants/media.constants.js";
+import { DEFAULTS, MEDIA_USAGE_TYPES, MEDIA_USAGE_TYPES_ARRAY } from "../constants/media.constants.js";
+import { MODELS } from "../constants/models.constants.js";
 
 
 const mediaAssetSchema = new mongoose.Schema(
@@ -7,7 +8,7 @@ const mediaAssetSchema = new mongoose.Schema(
     // 👤 Ownership
     uploadedBy: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
+      ref: MODELS.USER,
       required:true,
       index: true
     },
@@ -31,7 +32,7 @@ const mediaAssetSchema = new mongoose.Schema(
     // 🔗 Reference to physical file
     file: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "MediaFile",
+      ref: MODELS.MEDIA_FILE,
       required: true,
       index: true
     },
@@ -39,8 +40,8 @@ const mediaAssetSchema = new mongoose.Schema(
     // 🎯 Logical usage (NOT file type)
     usageType: {
       type: String,
-      enum: MEDIA_USAGE_TYPES,
-      default: DEFAULTS.usageType,
+      enum: MEDIA_USAGE_TYPES_ARRAY,
+      default: MEDIA_USAGE_TYPES.OTHER,
       index: true
     },
 
@@ -82,4 +83,4 @@ mediaAssetSchema.index(
 
 mediaAssetSchema.index({ createdAt: -1 });
 
-export const MediaAsset = mongoose.model("MediaAsset", mediaAssetSchema);
+export const MediaAsset = mongoose.model(MODELS.MEDIA_ASSET, mediaAssetSchema);

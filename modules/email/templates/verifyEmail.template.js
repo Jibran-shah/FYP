@@ -1,3 +1,4 @@
+import { BACKEND_URL } from "../../../constants/app.constants.js";
 import { escapeHtml } from "../utils/email.utils.js";
 import { baseTemplate } from "./base.template.js";
 
@@ -11,12 +12,13 @@ const validateUrl = (url) => {
 };
 
 export const verifyEmailTemplate = ({ name, link }) => {
-  if (!link || !validateUrl(link)) {
+  const absoluteUrl = BACKEND_URL+link;
+  if (!absoluteUrl || !validateUrl(absoluteUrl)) {
     throw new Error("Invalid or missing verification link");
   }
 
   const safeName = escapeHtml(name || "User");
-  const safeLink = link;
+  const safeLink = absoluteUrl;
 
   const subject = "Verify Your Email Address";
 

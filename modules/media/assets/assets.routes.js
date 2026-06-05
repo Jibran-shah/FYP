@@ -10,19 +10,18 @@ import {
 } from "./assets.controller.js";
 import { asyncHandler } from "../../../utils/asyncHandler.js";
 import { bulkDeleteMediaAssetsSchema, createMediaAssetSchema, getAllMediaAssetsQuerySchema, mediaAssetIdParamSchema, updateMediaAssetSchema } from "./assets.validation.js";
-import {validate} from "../../../middlewares/validation.middleware.js"
-import { protect } from "../../../middlewares/auth.middleware.js";
+import {validate} from "../../../middlewares/validate.middleware.js"
+import { protect, restrictTo } from "../../../middlewares/protect.middleware.js";
+import { USER_ROLES } from "../../../constants/user.constants.js";
 
 const router = express.Router();
-
-
-router.use(protect())
 
 // ------------------------
 // CREATE
 // ------------------------
 router.post(
   "/",
+  protect({requireBaseProfile:true}),
   validate(createMediaAssetSchema),
   asyncHandler(createMediaAsset)
 );
@@ -41,6 +40,8 @@ router.get(
 // ------------------------
 router.delete(
   "/bulk-delete",
+  protect({requireBaseProfile:true}),
+  restrictTo(USER_ROLES.ADMIN),
   validate(bulkDeleteMediaAssetsSchema),
   asyncHandler(bulkDeleteMediaAssets)
 );
@@ -59,6 +60,7 @@ router.get(
 // ------------------------
 router.put(
   "/:id",
+  protect({requireBaseProfile:true}),
   validate(mediaAssetIdParamSchema, "params"),
   validate(updateMediaAssetSchema, "body"),
   asyncHandler(updateMediaAsset)
@@ -69,6 +71,7 @@ router.put(
 // ------------------------
 router.delete(
   "/:id",
+  protect({requireBaseProfile:true}),
   validate(mediaAssetIdParamSchema, "params"),
   asyncHandler(deleteMediaAsset)
 );

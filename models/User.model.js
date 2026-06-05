@@ -1,6 +1,8 @@
 import mongoose from "mongoose";
 import bcrypt from "bcrypt";
 import { InternalServerError } from "../errors/index.js";
+import { USER_PROFILE_STATUS, USER_PROFILE_STATUS_ARRAY, USER_ROLES, USER_ROLES_ARRAY } from "../constants/user.constants.js";
+import { AUTH_CONFIG } from "../config/auth.config.js";
 
 const userSchema = new mongoose.Schema({
   userName: {
@@ -30,8 +32,8 @@ const userSchema = new mongoose.Schema({
 
   role: {
     type: String,
-    enum: ["user", "admin"],
-    default: "user"
+    enum: USER_ROLES_ARRAY,
+    default: USER_ROLES.USER
   },
 
   isEmailVerified: {
@@ -39,13 +41,27 @@ const userSchema = new mongoose.Schema({
     default: false
   },
 
-  profileStatus: {
-    type: String,
-    enum: ["INCOMPLETE", "COMPLETE"],
-    default: "INCOMPLETE",
+  baseProfile: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "BaseProfile",
+    default: null
+  },
+
+  serviceProvider: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "ServiceProvider",
+    default: null
+  },
+
+  productSeller: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "ProductSeller",
+    default: null
   }},  
+
   { timestamps: true }
 );
+
 
 
 userSchema.methods.comparePassword = async function (candidatePassword) {
@@ -59,7 +75,7 @@ userSchema.methods.comparePassword = async function (candidatePassword) {
 userSchema.pre("save", async function () {
   if (!this.isModified("password")) return;
 
-  this.password = await bcrypt.hash(this.password, 12);
+  this.password = await bcrypt.hash(this.password, AUTH_CONFIG.BCRYPT.SALT_ROUNDS);
 });
 
 export default mongoose.model(

@@ -1,5 +1,4 @@
 import express from "express";
-import { requireUpload } from "../../../middlewares/multer.middleware.js";
 import {
   createMediaFile,
   getAllMediaFiles,
@@ -8,19 +7,17 @@ import {
   bulkDeleteMediaFiles
 } from "./files.controller.js";
 import { asyncHandler } from "../../../utils/asyncHandler.js";
-import { protect } from "../../../middlewares/auth.middleware.js";
-import { validate } from "../../../middlewares/validation.middleware.js";
+import { protect, restrictTo } from "../../../middlewares/protect.middleware.js";
+import { validate } from "../../../middlewares/validate.middleware.js";
 import {getAllMediaFilesSchema, mediaFileIdSchema , bulkDeleteSchema} from "./files.validation.js"
-import { parseMedia } from "../../../middlewares/media.middlware.js";
+import { USER_ROLES } from "../../../constants/user.constants.js";
 
 const router = express.Router();
 
 
 // CREATE
-router.post("/",
-  protect, 
-  requireUpload("file"),
-  parseMedia("file"), 
+router.post("/", 
+  protect({requireBaseProfile:true}),
   asyncHandler(createMediaFile)
 );
 
@@ -42,7 +39,7 @@ router.get(
 
 router.delete(
   "/:id",
-  protect,
+  protect(),
   validate(mediaFileIdSchema, "params"),
   asyncHandler(deleteMediaFile)
 );
@@ -50,7 +47,8 @@ router.delete(
 
 router.delete(
   "/bulk-delete",
-  protect,
+  protect(),
+  restrictTo(USER_ROLES.ADMIN),
   validate(bulkDeleteSchema),
   asyncHandler(bulkDeleteMediaFiles)
 );

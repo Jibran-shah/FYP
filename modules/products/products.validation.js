@@ -35,6 +35,7 @@ export const createProductSchema = Joi.object({
   ratingAverage: Joi.forbidden(),
   status: Joi.forbidden(),
   categoryPath: Joi.forbidden()
+  
 });
 
 

@@ -18,7 +18,6 @@ import {
 import { parseExpiresToSeconds } from "../../utils/token.utils.js";
 import { InvalidTokenError, UnauthorizedError } from "../../errors/index.js";
 import { AUTH_CONFIG } from "../../config/auth.config.js";
-import { tokenConfig } from "../../utils/config.utils.js";
 
 
 /**
@@ -30,20 +29,18 @@ export const registerUser = async (req, res) => {
 
   const { user, accessToken, refreshToken } = await register(userName, email, password);
 
-  const {refresh,access} = tokenConfig();
+  const refreshTtlSeconds = parseExpiresToSeconds(AUTH_CONFIG.REFRESH_TOKEN.EXPIRY);
+  setCookie(res, AUTH_CONFIG.REFRESH_TOKEN.COOKIE_NAME, refreshToken, refreshTtlSeconds);
 
-  const refreshTtlSeconds = parseExpiresToSeconds(refresh.expiry);
-  setCookie(res, refresh.cookieName, refreshToken, refreshTtlSeconds);
-
-  const accessTtlSeconds = parseExpiresToSeconds(access.expiry);
-  setCookie(res, access.cookieName, accessToken, accessTtlSeconds);
+  const accessTtlSeconds = parseExpiresToSeconds(AUTH_CONFIG.ACCESS_TOKEN.EXPIRY);
+  setCookie(res, AUTH_CONFIG.ACCESS_TOKEN.COOKIE_NAME, accessToken, accessTtlSeconds);
 
   res.status(201).json({
     success: true,
-    message: "User registered successfully. Verification email sent.", // ✅ updated message
+    message: "User registered successfully. Verification email sent.",
     data: {
       userId:user._id,
-      userName,
+      userName:user.userName,
       email: user.email,
       role: user.role
     },
@@ -59,19 +56,17 @@ export const loginUser = async (req, res) => {
 
   const { user, accessToken, refreshToken } = await login(userName, email, password);
 
-  const {refresh,access} = tokenConfig();
+  const refreshTtlSeconds = parseExpiresToSeconds(AUTH_CONFIG.REFRESH_TOKEN.EXPIRY);
+  setCookie(res, AUTH_CONFIG.REFRESH_TOKEN.COOKIE_NAME, refreshToken, refreshTtlSeconds);
 
-  const refreshTtlSeconds = parseExpiresToSeconds(refresh.expiry);
-  setCookie(res, refresh.cookieName, refreshToken, refreshTtlSeconds);
-
-  const accessTtlSeconds = parseExpiresToSeconds(access.expiry);
-  setCookie(res, access.cookieName, accessToken, accessTtlSeconds);
+  const accessTtlSeconds = parseExpiresToSeconds(AUTH_CONFIG.ACCESS_TOKEN.EXPIRY);
+  setCookie(res, AUTH_CONFIG.ACCESS_TOKEN.COOKIE_NAME, accessToken, accessTtlSeconds);
 
   res.status(200).json({
     success: true,
     message: "User logged in successfully",
     data: {
-      userName,
+      userName:user.userName,
       email: user.email,
       role: user.role
     },
@@ -90,13 +85,11 @@ export const refreshToken = async (req, res) => {
 
   const { accessToken, refreshToken } = await refreshTokenService(refreshTokenCookie);
 
-  const {refresh,access} = tokenConfig();
+  const refreshTtlSeconds = parseExpiresToSeconds(AUTH_CONFIG.REFRESH_TOKEN.EXPIRY);
+  setCookie(res, AUTH_CONFIG.REFRESH_TOKEN.COOKIE_NAME, refreshToken, refreshTtlSeconds);
 
-  const refreshTtlSeconds = parseExpiresToSeconds(refresh.expiry);
-  setCookie(res, refresh.cookieName, refreshToken, refreshTtlSeconds);
-
-  const accessTtlSeconds = parseExpiresToSeconds(access.expiry);
-  setCookie(res, access.cookieName, accessToken, accessTtlSeconds);
+  const accessTtlSeconds = parseExpiresToSeconds(AUTH_CONFIG.ACCESS_TOKEN.EXPIRY);
+  setCookie(res, AUTH_CONFIG.ACCESS_TOKEN.COOKIE_NAME, accessToken, accessTtlSeconds);
 
   res.json({
     success: true,
@@ -115,8 +108,8 @@ export const logout = async (req, res) => {
 
   await logoutService(refreshTokenCookie);
 
-  clearCookie(res, "refreshToken");
-  clearCookie(res, "accessToken");
+  clearCookie(res, AUTH_CONFIG.REFRESH_TOKEN.COOKIE_NAME);
+  clearCookie(res, AUTH_CONFIG.ACCESS_TOKEN.COOKIE_NAME);
 
   res.json({ success: true, message: "Logged out from current session" });
 };
@@ -157,9 +150,8 @@ export const forgotPassword = async (req, res) => {
 export const verifyResetOtp = async (req, res) => {
   const { email, otp } = req.validated?.body;
   const { resetToken } = await verifyResetOtpService(email, otp);
-  const {reset} = tokenConfig()
-  const resetTtlSeconds = parseExpiresToSeconds(reset.expiry)
-  setCookie(res, reset.cookieName, resetToken, resetTtlSeconds);
+  const resetTtlSeconds = parseExpiresToSeconds(AUTH_CONFIG.RESET_TOKEN.EXPIRY)
+  setCookie(res, AUTH_CONFIG.RESET_TOKEN.COOKIE_NAME, resetToken, resetTtlSeconds);
   res.status(200).json({
     success: true,
     message: "OTP verified successfully"

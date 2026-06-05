@@ -8,12 +8,11 @@ import {
 import { createLog } from "./logs/emailLog.utils.js";
 import { InternalServerError } from "../../errors/Http.error.js";
 
-// =========================
-// 🚀 MAIN PROCESSOR
-// =========================
 
 export const emailProcessor = async (job) => {
   const { type, to, data = {} } = job.data || {};
+
+  console.log(job.data);
 
   if (!type || !to) {
     throw new InternalServerError("Invalid email job payload");
@@ -24,10 +23,9 @@ export const emailProcessor = async (job) => {
   let log = null;
 
   try {
-    // 1️⃣ Build content
+
     const { subject, html } = buildEmailContent(type, data);
 
-    // 2️⃣ Create log
     log = await createLog({
       to: normalizedTo,
       type,
@@ -36,10 +34,8 @@ export const emailProcessor = async (job) => {
       job
     });
 
-    // 3️⃣ Get provider
     const provider = getValidProvider();
 
-    // 4️⃣ Send email
     const result = await sendEmailWithTimeout(provider, {
       to: normalizedTo,
       subject,
@@ -47,13 +43,12 @@ export const emailProcessor = async (job) => {
       idempotencyKey: job.id
     });
 
-    // 5️⃣ Mark success
     await markEmailSuccess(log._id, result);
 
     return true;
 
   } catch (err) {
-    // 6️⃣ Mark failure
+    
     if (log?._id) {
       try {
         await markEmailFailure(log._id, err);
@@ -62,7 +57,7 @@ export const emailProcessor = async (job) => {
       }
     }
 
-    // 7️⃣ Let BullMQ retry
+    //Let BullMQ retry
     throw err;
   }
 };

@@ -5,6 +5,7 @@ import {
   DatabaseError,
 } from "../errors/index.js";
 import { logger } from "../config/logger.js";
+import { parseMongoDuplicateError } from "../utils/errorHandling.utils.js";
 
 export const errorHandler = (err, req, res, next) => {
 
@@ -48,12 +49,11 @@ export const errorHandler = (err, req, res, next) => {
   ============================================
   */
   else if (err.code === 11000) {
-    const field = Object.keys(err.keyValue)[0];
-
+    const {field, value, message} = parseMongoDuplicateError(err);
     error = new ConflictError(`${field} already exists`, [
       {
         field,
-        message: `${field} must be unique`,
+        message,
       },
     ]);
   }

@@ -1,133 +1,27 @@
-import { createMediaFile, deleteMediaFile } from "./files/files.service.js";
+import { createMediaFile } from "./files/files.service.js";
 import { BadRequestError } from "../../errors/Http.error.js";
 import { MediaFile } from "../../models/MediaFile.models.js";
 import { createAsset, deleteAsset } from "./assets/assets.service.js";
-import { logger } from "../../config/logger.js";
-import { mediaContext } from "../../middlewares/media.middlware.js";
 
+/* =========================================================
+   assertMediaOwnership
+   ---------------------------------------------------------
+   Validates that a media file exists and belongs to the user
+   before it can be reused or linked to an asset.
+========================================================= */
 
-export const mediaService = {
-
-    async resolve({
-    file,
-    fileId,
-    context,
-    userId,
-    session
-  }) {
-
-    // -----------------------------
-    // CASE 1: NEW FILE UPLOAD
-    // -----------------------------
-    if (file) {
-    
-      const mediaFile = await createMediaFile({
-        file,
-        uploadedBy: context.owner
-      },session);
-
-      const asset = await createAsset({
-        file: mediaFile.id,
-        uploadedBy: context.owner,
-        usageType:context.usageType,
-        namespace:context.namespace
-      },session);
-      return asset._id;
-      
-    }
-
-    // -----------------------------
-    // CASE 2: REUSE EXISTING FILE
-    // -----------------------------
-    if (fileId) {
-      await assertMediaOwnership({
-        fileId,
-        userId
-      });
-
-      const asset = await createAsset({
-        file: fileId,
-        uploadedBy: userId,
-        usageType:context.usageType,
-        usageType:context.namespace
-      },session);
-
-      return asset._id;
-    }
-
-    // -----------------------------
-    // CASE 3: NO MEDIA
-    // -----------------------------
-    return null;
-  },
-
-  /**
-   * OPTIONAL: SAFE DELETE
-   */
-  async remove(assetId, userId, session) {
-    if (!assetId) return;
-
-    await deleteAsset(assetId, userId, session);
-  },
-
-
-  /**
-   * Upload single media
-   */
-  async upload({
-    file,
-    context,
-  },session = null) {
-    if (!file) return null;
-
-    if (!context?.owner) {
-      throw new Error("Media context owner missing");
-    }
-
-    // 1. Create MediaFile
-    const mediaFile = await createMediaFile({
-      file,
-      uploadedBy: context.owner
-    },session);
-
-    // 2. Create MediaAsset
-    const asset = await createAsset({
-      file: mediaFile._id,
-      uploadedBy: context.owner,
-      usageType: context.usageType,
-      namespace: context.namespace,
-      entity: context.entity
-    },session);
-
-    return asset;
-  },
-
-  /**
-   * Upload multiple files
-   */
-  async uploadMany({
-    files = [],
-    context
-  },session = null) {
-    const results = [];
-
-    for (const file of files) {
-      const asset = await this.upload({
-        file,
-        context
-      },session);
-
-      if (asset) results.push(asset);
-    }
-
-    return results;
-  }
-};
-
-export const assertMediaOwnership = async ({
-  fileId,
-  userId
-}) => {
+/**
+ * Validates ownership of a media file.
+ *
+ * @param {Object} params
+ * @param {string} params.fileId - Media file ID to validate
+ * @param {string} params.userId - ID of requesting user
+ *
+ * @returns {Promise<Object>} MediaFile document if valid
+ *
+ * @throws {BadRequestError} If file does not exist or user does not own it
+ */
+export const assertMediaOwnership = async ({ fileId, userId }) => {
   const file = await MediaFile.findById(fileId);
 
   if (!file) {
@@ -139,4 +33,172 @@ export const assertMediaOwnership = async ({
   }
 
   return file;
+};
+
+/* =========================================================
+   mediaService
+   ---------------------------------------------------------
+   Central service responsible for:
+   - Resolving uploaded files into assets
+   - Reusing existing media file IDs
+   - Enforcing ownership rules
+   - Creating assets with context metadata
+   - Deleting assets safely
+========================================================= */
+
+/**
+ * Media service for handling file-to-asset resolution and deletion.
+ */
+export const mediaService = {
+
+  /* =========================================================
+     resolve
+     ---------------------------------------------------------
+     Normalizes mixed media inputs (files + fileIds)
+     into a unified list of asset IDs.
+  ========================================================= */
+
+  /**
+   * Resolves uploaded files and existing file IDs into asset IDs.
+   *
+   * @param {Object} params
+   * @param {Array<Object>} params.files - Newly uploaded files
+   * @param {Array<string>} params.fileIds - Existing media file IDs
+   * @param {Object} params.context - Metadata context (owner, usageType, namespace, entity)
+   * @param {string} params.userId - Requesting user ID
+   * @param {Object} params.session - Database transaction session
+   *
+   * @returns {Promise<Array<string>>} Array of created asset IDs
+   */
+  async resolve({
+    files = [],
+    fileIds = [],
+    context,
+    userId,
+    session
+  }) {
+
+    console.log(context)
+
+    const assetIds = [];
+
+    for (const file of files) {
+      const assetId = await this._createFromFile({
+        file,
+        context,
+        session
+      });
+
+      if (assetId) assetIds.push(assetId);
+    }
+
+    for (const fileId of fileIds) {
+      const assetId = await this._createFromFileId({
+        fileId,
+        context,
+        session
+      });
+
+      if (assetId) assetIds.push(assetId);
+    }
+
+    return assetIds;
+  },
+
+  /* =========================================================
+     _createFromFile
+     ---------------------------------------------------------
+     Handles raw file upload flow:
+     File → MediaFile → Asset
+  ========================================================= */
+
+  /**
+   * Creates a MediaFile and wraps it into an Asset.
+   *
+   * @param {Object} params
+   * @param {Object} params.file - Uploaded file object
+   * @param {Object} params.context - Ownership + usage metadata
+   * @param {Object} params.session - DB transaction session
+   *
+   * @returns {Promise<string>} Asset ID
+   */
+  async _createFromFile({ file, context, session }) {
+    const mediaFile = await createMediaFile(
+      {
+        file,
+        uploadedBy: context.owner
+      },
+      session
+    );
+
+    const asset = await createAsset(
+      {
+        file: mediaFile.id,
+        uploadedBy: context.owner,
+        usageType: context.usageType,
+        namespace: context.namespace
+      },
+      session
+    );
+
+    return asset._id;
+  },
+
+  /* =========================================================
+     _createFromFileId
+     ---------------------------------------------------------
+     Reuses an existing MediaFile ID:
+     Ownership → Asset creation only
+  ========================================================= */
+
+  /**
+   * Creates an Asset from an existing MediaFile ID.
+   *
+   * @param {Object} params
+   * @param {string} params.fileId - Existing media file ID
+   * @param {Object} params.context - Usage metadata context
+   * @param {string} params.userId - Requesting user ID
+   * @param {Object} params.session - DB transaction session
+   *
+   * @returns {Promise<string>} Asset ID
+   */
+  async _createFromFileId({ fileId, context, session }) {
+    await assertMediaOwnership({
+      fileId,
+      userId:context.owner
+    });
+
+    const asset = await createAsset(
+      {
+        file: fileId,
+        uploadedBy: context.owner,
+        usageType: context.usageType,
+        namespace: context.namespace
+      },
+      session
+    );
+
+    return asset._id;
+  },
+
+  /* =========================================================
+     remove
+     ---------------------------------------------------------
+     Deletes an asset safely with ownership validation
+     (handled internally by deleteAsset service).
+  ========================================================= */
+
+  /**
+   * Deletes an asset by ID.
+   *
+   * @param {string} assetId - Asset to delete
+   * @param {string} userId - Requesting user ID
+   * @param {Object} session - DB transaction session
+   *
+   * @returns {Promise<any>} Result from delete operation
+   */
+  async remove(assetId, userId, session) {
+    if (!assetId) return;
+    return deleteAsset(assetId, userId, session);
+  }
 };

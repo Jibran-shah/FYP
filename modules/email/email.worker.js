@@ -24,4 +24,6 @@ emailWorker.on("failed", (job, err) => {
   logger.error("❌ Failed:", {jobId:job?.id,error:{ message:err.message,
     details:err.stack
   }});
+  console.error("FAILED JOB:", job?.id);
+  console.error(err);
 });

@@ -1,7 +1,9 @@
-export const REVIEW_ENTITYS = {
-    PRODUCT:"Product",
-    SELLER:"Seller",
-    PROVIDER:"Provider"
-}
+import { MODELS } from "./models.constants.js";
 
-export const REVIEW_ENTITYS_ARRAY =  [REVIEW_ENTITYS.PRODUCT, REVIEW_ENTITYS.SELLER,REVIEW_ENTITYS.PROVIDER];
+export const REVIEW_ENTITYS = Object.freeze({
+    PRODUCT:MODELS.PRODUCT,
+    SELLER:MODELS.PRODUCT_SELLER,
+    PROVIDER:MODELS.SERVICE_PROVIDER
+});
+
+export const REVIEW_ENTITYS_ARRAY = Object.freeze(Object.values(REVIEW_ENTITYS));

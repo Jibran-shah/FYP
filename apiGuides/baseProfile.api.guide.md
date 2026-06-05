@@ -1,15 +1,10 @@
----
-
-# 👤 Profile API – Frontend Integration Guide
-
-This guide explains how to integrate **Profile APIs** from the frontend.
+# 🔐 baseProfile API – Frontend Integration Guide
 
 ---
-
 # 🌐 Base URL
 
 ```
-http://<your-domain>/api/profile
+http://localhost:5000/api/profile/base
 ```
 
 ---

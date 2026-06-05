@@ -5,43 +5,85 @@ import {
   UnauthorizedError,
   BadRequestError
 } from "../../errors/index.js";
+
 import { isValidId } from "../../validationSchemas/mongodb.schemas.js";
 import { escapeRegex } from "../../utils/escapeRegex.utils.js";
 import { CATEGORY_APPLIES_TO } from "../../constants/category.constants.js";
 import { mediaService } from "../media/media.service.js";
 
-
-export const createProduct = async (data) => {
+export const createProduct = async (data, context = {}) => {
   const category = await Category.findById(data.category);
-  if(!category){
-    throw new BadRequestError("Category doesn't exist")
+
+  if (!category) {
+    throw new BadRequestError("Category doesn't exist");
   }
 
-  if(!category.appliesTo.includes(CATEGORY_APPLIES_TO.PRODUCT)){
-    throw new BadRequestError("must provide a products category")
+  if (!category.appliesTo.includes(CATEGORY_APPLIES_TO.PRODUCT)) {
+    throw new BadRequestError("Must provide a product category");
   }
 
-  const images = [];
+  const { file, files = [], fileId, fileIds = [] } = context;
 
-  if(data.images){
-    for(image in data.images){
-      const image = await mediaService.resolve({
-        fileId:image,
-        context:data.context,
-        userId:data.seller
-      });
-      images.push(image);
-    }
-  }
+  const images = await mediaService.resolveBatch({
+    file,
+    files,
+    fileId,
+    fileIds,
+    context,
+    userId: data.seller
+  });
+
+  // ✅ GET SELLER LOCATION
+  const seller = await ProductSeller.findById(data.seller).select(
+    "location"
+  );
 
   data.categoryPath = category.path;
   data.images = images;
-  
-  const product = await Product.create(data);
-  return product;
+
+  // ✅ INHERIT LOCATION
+  if (seller?.location?.coordinates?.length === 2) {
+    data.location = {
+      type: "Point",
+      coordinates: seller.location.coordinates
+    };
+  }
+
+  return await Product.create(data);
 };
 
 
+/**
+ * Sync all products of a seller with seller location
+ */
+export const syncSellerProductLocations = async (seller, session = null) => {
+  if (
+    !seller?.location?.coordinates ||
+    seller.location.coordinates.length !== 2
+  ) {
+    return;
+  }
+
+  const filter = { seller: seller._id };
+
+  const update = {
+    location: {
+      type: "Point",
+      coordinates: seller.location.coordinates
+    }
+  };
+
+  if (session) {
+    return Product.updateMany(filter, update).session(session);
+  }
+
+  return Product.updateMany(filter, update);
+};
+
+
+/* =========================================================
+   GET PRODUCTS (UNCHANGED LOGIC, CLEANED)
+========================================================= */
 export const getProducts = async (query) => {
   let {
     page = 1,
@@ -75,9 +117,7 @@ export const getProducts = async (query) => {
 
     const safePath = escapeRegex(cat.path);
 
-    filter.categoryPath = {
-      $regex: `^${safePath}`
-    };
+    filter.categoryPath = { $regex: `^${safePath}` };
   }
 
   if (status) filter.status = status;
@@ -111,17 +151,22 @@ export const getProducts = async (query) => {
   };
 };
 
+/* =========================================================
+   GET BY SELLER
+========================================================= */
 export const getProductsBySeller = async (sellerId) => {
   if (!isValidId(sellerId)) {
     throw new BadRequestError("Invalid seller id");
   }
 
-  return await Product.find({ seller: sellerId })
+  return Product.find({ seller: sellerId })
     .sort("-createdAt")
     .populate("category", "name");
 };
 
-
+/* =========================================================
+   GET BY CATEGORY
+========================================================= */
 export const getByCategory = async (categoryId) => {
   if (!isValidId(categoryId)) {
     throw new BadRequestError("Invalid category id");
@@ -132,16 +177,16 @@ export const getByCategory = async (categoryId) => {
 
   const safePath = escapeRegex(category.path);
 
-  return await Product.find({
+  return Product.find({
     categoryPath: { $regex: `^${safePath}` }
   })
     .sort("-createdAt")
     .populate("seller", "name");
 };
 
-/* ======================
+/* =========================================================
    GET SINGLE PRODUCT
-====================== */
+========================================================= */
 export const getProductById = async (productId) => {
   if (!isValidId(productId)) {
     throw new BadRequestError("Invalid product id");
@@ -159,9 +204,9 @@ export const getProductById = async (productId) => {
   return product;
 };
 
-/* ======================
-   UPDATE PRODUCT
-====================== */
+/* =========================================================
+   UPDATE PRODUCT (SAFE)
+========================================================= */
 export const updateProduct = async ({
   productId,
   userId,
@@ -177,16 +222,10 @@ export const updateProduct = async ({
     throw new NotFoundError("Product not found");
   }
 
-  /* ======================
-     OWNERSHIP CHECK
-  ====================== */
-  if (product.seller.toString() !== userId) {
+  if (product.seller.toString() !== String(userId)) {
     throw new UnauthorizedError("Not allowed to update this product");
   }
 
-  /* ======================
-     BLOCK DANGEROUS FIELDS
-  ====================== */
   const forbiddenFields = [
     "seller",
     "category",
@@ -198,7 +237,7 @@ export const updateProduct = async ({
   ];
 
   for (const field of forbiddenFields) {
-    if (field in data) {
+    if (Object.prototype.hasOwnProperty.call(data, field)) {
       throw new BadRequestError(`Cannot update field: ${field}`);
     }
   }
@@ -206,13 +245,12 @@ export const updateProduct = async ({
   Object.assign(product, data);
 
   await product.save();
-
   return product;
 };
 
-/* ======================
-   DELETE PRODUCT (SOFT READY)
-====================== */
+/* =========================================================
+   DELETE PRODUCT
+========================================================= */
 export const deleteProduct = async ({
   productId,
   userId
@@ -227,11 +265,10 @@ export const deleteProduct = async ({
     throw new NotFoundError("Product not found");
   }
 
-  if (product.seller.toString() !== userId) {
+  if (product.seller.toString() !== String(userId)) {
     throw new UnauthorizedError("Not allowed to delete this product");
   }
 
   await product.deleteOne();
-
   return true;
 };

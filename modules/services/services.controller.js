@@ -20,7 +20,6 @@ export const createService = async (req, res) => {
 ========================================================= */
 export const getServices = async (req, res) => {
   const result = await serviceService.getServices(req.validated?.query);
-
   res.json({
     success: true,
     ...result

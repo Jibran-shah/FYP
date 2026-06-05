@@ -1,8 +1,8 @@
 import express from "express";
 import * as categoryController from "./categories.controller.js";
 
-import { protect } from "../../middlewares/auth.middleware.js";
-import { validate } from "../../middlewares/validation.middleware.js";
+import { protect } from "../../middlewares/protect.middleware.js";
+import { validate } from "../../middlewares/validate.middleware.js";
 import { asyncHandler } from "../../utils/asyncHandler.js";
 
 import {
@@ -18,7 +18,7 @@ const router = express.Router();
 /* ======================
    AUTH PROTECTION
 ====================== */
-router.use(protect());
+router.use(protect({requireBaseProfile:true}));
 
 /* ======================
    CREATE CATEGORY

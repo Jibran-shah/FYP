@@ -80,7 +80,40 @@ const serviceSchema = new Schema(
       min: 0,
       max: 5,
       index: true
-    }
+    },
+    location: {
+      type: {
+        type: String,
+        enum: ["Point"],
+        default: "Point"
+      },
+      coordinates: {
+        type: [Number], // [longitude, latitude]
+        validate: {
+          validator: function (value) {
+            return (
+              Array.isArray(value) &&
+              value.length === 2 &&
+              value[0] >= -180 &&
+              value[0] <= 180 &&
+              value[1] >= -90 &&
+              value[1] <= 90
+            );
+          },
+          message:
+            "Coordinates must be [longitude, latitude] with valid ranges."
+        }
+      },
+
+      address: {
+        country: { type: String, trim: true },
+        state: { type: String, trim: true },
+        city: { type: String, trim: true },
+        area: { type: String, trim: true },
+        fullAddress: { type: String, trim: true }
+      }
+      
+    },
   },
   {
     timestamps: true
@@ -92,6 +125,4 @@ serviceSchema.index({ category: 1, price: 1 });
 serviceSchema.index({ categoryPath: 1 });
 serviceSchema.index({ categoryPath: 1, price: 1 });
 
-const Service = mongoose.model("Service", serviceSchema);
-
-export default Service;
+export default mongoose.models.Service || mongoose.model("Service", serviceSchema);

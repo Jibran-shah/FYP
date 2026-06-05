@@ -1,5 +1,8 @@
 // controllers/serviceProvider.controller.js
+import { AUTH_CONFIG } from "../../../config/auth.config.js";
 import { NotFoundError } from "../../../errors/Http.error.js";
+import { setCookie } from "../../../utils/cookie.js";
+import { parseExpiresToSeconds } from "../../../utils/token.utils.js";
 import { 
     createProvider as createProviderService,
     getAllProviders as getAllProvidersService,
@@ -15,14 +18,19 @@ import {
 // ------------------------
 export const createServiceProvider = async (req, res) => {
     const payload = req.validated?.body;
-    const userId = req.user?.id;
 
-    const serviceProvider = await createProviderService({
+    const {provider,refreshToken,accessToken} = await createProviderService({
       ...payload,
-      userId
+      user:req.user
     });
+      
+    const refreshTtlSeconds = parseExpiresToSeconds(AUTH_CONFIG.REFRESH_TOKEN.EXPIRY);
+    setCookie(res, AUTH_CONFIG.REFRESH_TOKEN.COOKIE_NAME, refreshToken, refreshTtlSeconds);
+      
+    const accessTtlSeconds = parseExpiresToSeconds(AUTH_CONFIG.ACCESS_TOKEN.EXPIRY);
+    setCookie(res, AUTH_CONFIG.ACCESS_TOKEN.COOKIE_NAME, accessToken, accessTtlSeconds);
 
-    return res.status(201).json({ serviceProvider });
+    return res.status(201).json({ provider });
 };
 
 // ------------------------
@@ -83,10 +91,14 @@ export const updateServiceProviderByUser = async (req, res) => {
 // DELETE SINGLE
 // ------------------------
 export const deleteServiceProvider = async (req, res) => {
-    const { id } = req.validated?.params;
-    const userId = req.user?.id || null;
 
-    await deleteProviderService(id, userId);
+    const {refreshToken,accessToken} =  await deleteProviderService(req.user);
+      
+    const refreshTtlSeconds = parseExpiresToSeconds(AUTH_CONFIG.REFRESH_TOKEN.EXPIRY);
+    setCookie(res, AUTH_CONFIG.REFRESH_TOKEN.COOKIE_NAME, refreshToken, refreshTtlSeconds);
+      
+    const accessTtlSeconds = parseExpiresToSeconds(AUTH_CONFIG.ACCESS_TOKEN.EXPIRY);
+    setCookie(res, AUTH_CONFIG.ACCESS_TOKEN.EXPIRY, accessToken, accessTtlSeconds);
 
     return res
       .status(200)

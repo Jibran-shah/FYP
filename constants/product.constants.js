@@ -1,6 +1,7 @@
-export const PRODUCT_STATUSES = {
+export const PRODUCT_STATUSES = Object.freeze({
     AVAILABLE:"available",
     SOLD_OUT:"sold_out",
     INACTIVE:"inactive"
-}
-export const PRODUCT_STATUS_ARRAY = [PRODUCT_STATUSES.AVAILABLE, PRODUCT_STATUSES.SOLD_OUT, PRODUCT_STATUSES.INACTIVE];
+})
+
+export const PRODUCT_STATUS_ARRAY = Object.freeze(Object.values(PRODUCT_STATUSES));

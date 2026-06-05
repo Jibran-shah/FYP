@@ -1,4 +1,4 @@
-# 🔐 Auth API – Frontend Integration Guide (CLEAN VERSION)
+# 🔐 Auth API – Frontend Integration Guide
 
 ---
 
@@ -372,3 +372,4 @@ POST /reset-password
 
 * Show API error messages directly to user
 
+---

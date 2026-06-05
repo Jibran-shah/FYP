@@ -32,6 +32,7 @@ export const createAsset = async ({
 }, session = null) => {
 
   const execute = async (session) => {
+
     const mediaFile = await MediaFile.findById(file).session(session);
 
     if (!mediaFile) {
@@ -123,10 +124,17 @@ export const updateAsset = async (mediaAssetId, updates, updatedBy, session = nu
     try {
       await asset.save({ session });
     } catch (err) {
-      if (err.code === 11000) {
-        throw new ConflictError("Slug already exists");
+      const error = parseMongoDuplicateError(err);
+      if(error){
+        throw new ConflictError(`${error.field} already exists`, [
+          {
+            field:error.field,
+            message:error.message,
+          },
+        ]);
+      }else{
+            throw err
       }
-      throw err;
     }
 
     return asset;

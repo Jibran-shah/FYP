@@ -12,7 +12,7 @@ import {
   verifyEmail,
   resendVerifyEmail
 } from "./auth.controller.js";
-import { validate } from "../../middlewares/validation.middleware.js";
+import { validate } from "../../middlewares/validate.middleware.js";
 import { 
   registerSchema,
   loginSchema,
@@ -24,7 +24,7 @@ import {
   resendVerifyEmailSchema
 } from "./auth.validation.js";
 import { asyncHandler } from "../../utils/asyncHandler.js";
-import { protect } from "../../middlewares/auth.middleware.js";
+import { protect } from "../../middlewares/protect.middleware.js";
 
 const router = express.Router();
 
@@ -38,7 +38,7 @@ router.post("/resend-reset-otp", validate(resendResetOtpSchema), asyncHandler(re
 
 router.get("/verify-email", validate(verifyEmailSchema, "query"), asyncHandler(verifyEmail));
 
-router.post("/resend-verify-email", protect({ isProfileCompleteCheck: false }), validate(resendVerifyEmailSchema), asyncHandler(resendVerifyEmail));
+router.post("/resend-verify-email", protect(), validate(resendVerifyEmailSchema), asyncHandler(resendVerifyEmail));
 
 // Register
 router.post("/register", validate(registerSchema), asyncHandler(registerUser));
@@ -47,10 +47,10 @@ router.post("/register", validate(registerSchema), asyncHandler(registerUser));
 router.post("/login", validate(loginSchema), asyncHandler(loginUser));
 
 // Logout
-router.post("/logout", protect({ isProfileCompleteCheck: false }), asyncHandler(logout));
+router.post("/logout", protect(), asyncHandler(logout));
 
 // Logout All
-router.post("/logout-all", protect({ isProfileCompleteCheck: false }), asyncHandler(logoutAll));
+router.post("/logout-all", protect(), asyncHandler(logoutAll));
 
 // Refresh token
 router.get("/refresh-token", asyncHandler(refreshToken));

@@ -1,44 +1,78 @@
 import mongoose, { connections } from "mongoose";
-import Profile from "../../../models/Profile.model.js";
+import Profile from "../../../models/BaseProfile.model.js";
 import User from "../../../models/User.model.js";
 import { BadRequestError, InternalServerError, NotFoundError } from "../../../errors/index.js";
 import { mediaService } from "../../media/media.service.js";
 import { parseMongoDuplicateError } from "../../../utils/errorHandling.utils.js";
+import { generateAccessToken, generateRefreshToken, parseExpiresToSeconds } from "../../../utils/token.utils.js";
+import { refreshSessionSystem } from "../../../utils/session.utils.js";
+import ServiceProviderModel from "../../../models/ServiceProvider.model.js";
+import ProductSellerModel from "../../../models/ProductSeller.model.js";
+import { AUTH_CONFIG } from "../../../config/auth.config.js";
 
-export const createProfile = async (userId, profileData, media, context) => {
+export const createProfile = async (user, profileData, media, contextMap) => {
 
   const session = await mongoose.startSession();
   session.startTransaction();
 
   try {
 
-    const assetId = await mediaService.resolve({
-          file: media?.file,
-          context,
-          userId,
-          session
-      });
+
+    const avatarFile = media?.profileAvatar || [];
+    const coverFile = media?.profileCover || [];
+
+
+    const avatarAssetIds = await mediaService.resolve({
+      files: avatarFile,
+      fileIds: [],
+      context: contextMap.profileAvatar,
+      userId: user.id,
+      session
+    });
+
+    const coverAssetIds = await mediaService.resolve({
+      files: coverFile,
+      fileIds: [],
+      context: contextMap.profileCover,
+      userId: user.id,
+      session
+    });
+
 
 
     const [profile] = await Profile.create(
       [
         {
-          user: userId,
+          user: user.id,
           ...profileData,
-          profileImage: assetId,
+          profileAvatar: avatarAssetIds[0],
+          profileCover: coverAssetIds[0] 
         },
       ],
       { session }
     );
 
-    await User.updateOne(
-      { _id: userId },
-      { profileStatus: "COMPLETE" },
-      { session }
+    const _user = await User.findOneAndUpdate(
+      { _id: user.id },
+      { baseProfile: profile._id },
+      { session, new:true }
     );
 
+    const sessionId = refreshSessionSystem.generateId();
+
+    const accessToken = generateAccessToken({ user:_user });
+  
+    const refreshToken = generateRefreshToken({ user:_user, sessionId });
+
+    const ttl = parseExpiresToSeconds(AUTH_CONFIG.REFRESH_TOKEN.EXPIRY);
+    await refreshSessionSystem.save(_user._id, sessionId, refreshToken);
     await session.commitTransaction();
-    return profile;
+
+    return {
+      accessToken,
+      refreshToken,
+      profile
+    };
 
   } catch (err) {
 
@@ -62,11 +96,38 @@ export const createProfile = async (userId, profileData, media, context) => {
 
 export const getProfileByUser = async (id) => {
   return Profile.findOne({user:id})
-    .populate("profileImage");
+  .populate([
+      {
+        path: "profileAvatar",select:"file namespace slug",
+          populate:{
+            path:"file",
+            select:"url formate size mimeType"
+      }},
+      {
+        path: "profileCover",select:"file namespace slug",
+          populate:{
+            path:"file",
+            select:"url formate size mimeType"
+      }}
+    ]);
 };
 
 export const getProfileById = async (id)=>{
-  return Profile.findById(id);
+  return Profile.findById(id)
+  .populate([
+      {
+        path: "profileAvatar",select:"file namespace slug",
+          populate:{
+            path:"file",
+            select:"url formate size mimeType"
+      }},
+      {
+        path: "profileCover",select:"file namespace slug",
+          populate:{
+            path:"file",
+            select:"url formate size mimeType"
+      }}
+    ]);
 }
 
 export const getProfilesByQuery = async (filters)=>{
@@ -101,6 +162,20 @@ export const getProfilesByQuery = async (filters)=>{
 
   const [docs, total] = await Promise.all([
     Profile.find(query)
+      .populate([
+        {
+          path: "profileAvatar",select:"file namespace slug",
+            populate:{
+              path:"file",
+              select:"url formate size mimeType"
+        }},
+        {
+          path: "profileCover",select:"file namespace slug",
+            populate:{
+              path:"file",
+              select:"url formate size mimeType"
+        }}
+      ])
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
@@ -135,33 +210,51 @@ export const updateProfile = async (
   userId,
   profileData,
   media,
-  context
+  contextMap
 ) => {
   const session = await mongoose.startSession();
   session.startTransaction();
 
   try {
+
     const profile = await Profile.findOne({ user: userId }).session(session);
     if (!profile) throw new NotFoundError("Profile not found");
 
-    const newAssetId = await mediaService.resolve({
-          file: media?.file,
-          fileId:profileData.fileId,
-          context,
-          userId,
-          session
-      });
+    const avatarFile = media?.profileAvatar || [];
+    const coverFile = media?.profileCover || [];
+
+
+    const avatarAssetIds = await mediaService.resolve({
+      files: avatarFile,
+      fileIds: [],
+      context: contextMap.profileAvatar,
+      userId,
+      session
+    });
+
+    const coverAssetIds = await mediaService.resolve({
+      files: coverFile,
+      fileIds: [],
+      context: contextMap.profileCover,
+      userId,
+      session
+    });
 
     // IMPORTANT: replace old asset safely
-    if (newAssetId && profile.profileImage) {
-      await mediaService.remove(profile.profileImage, userId, session);  
+    if (avatarAssetIds.length && profile.profileAvatar) {
+      await mediaService.remove(profile.profileAvatar, userId, session);  
+    }
+
+    if (coverAssetIds.length && profile.profileCover) {
+      await mediaService.remove(profile.profileCover, userId, session);  
     }
 
     const updated = await Profile.findOneAndUpdate(
       { user: userId },
       {
         ...profileData,
-        ...(newAssetId && { profileImage: newAssetId }),
+        ...(avatarAssetIds.length && { profileAvatar: avatarAssetIds[0] }),
+        ...(coverAssetIds.length && { profileCover: coverAssetIds[0] }),
       },
       { new: true, session }
     );
@@ -176,27 +269,29 @@ export const updateProfile = async (
   }
 };
 
+
 export const deleteProfile = async (userId) => {
   const session = await mongoose.startSession();
   session.startTransaction();
 
   try {
     const profile = await Profile.findOne({ user: userId }).session(session);
-    if (!profile) return null;
+    if (!profile) throw new NotFoundError("profile doesn't exists");
 
-    await mediaService.remove(profile.profileImage, userId, session);
+    await mediaService.remove(profile.profileAvatar, userId, session);
+    await mediaService.remove(profile.profileCover, userId, session);
 
-    // STEP 2: delete profile
     await Profile.deleteOne({ _id: profile._id }).session(session);
 
-    await User.updateOne(
-      { _id: userId },
-      { profileStatus: "INCOMPLETE" },
-      { session }
-    );
+    await ServiceProviderModel.deleteOne({ user: userId }).session(session);
+    await ProductSellerModel.deleteOne({ user: userId }).session(session);
+
+    await User.findByIdAndDelete(userId);
+
+    refreshSessionSystem.deleteAll(userId);
 
     await session.commitTransaction();
-    return profile;
+    return true;
   } catch (err) {
     await session.abortTransaction();
     throw err;
