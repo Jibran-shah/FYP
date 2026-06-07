@@ -26,11 +26,20 @@ import {
 /* =========================================================
    CREATE PRODUCT (NEW MEDIA SYSTEM)
 ========================================================= */
-export const createProduct = async (
-  data,
-  context = {}
-) => {
-  const category = await Category.findById(data.category);
+export const createProduct = async (payload, mediaContext = {}) => {
+  const {
+    data,
+    user,
+    sellerId,
+    categoryId,
+    files = [],
+    fileIds = []
+  } = payload;
+
+  /* =========================
+     VALIDATE CATEGORY
+  ========================= */
+  const category = await Category.findById(categoryId);
 
   if (!category) {
     throw new BadRequestError("Category doesn't exist");
@@ -40,46 +49,58 @@ export const createProduct = async (
     throw new BadRequestError("Must provide a product category");
   }
 
-  const { files = [], fileIds = [] } = data;
+  /* =========================
+     VALIDATE SELLER
+  ========================= */
+  const seller = await ProductSeller.findById(sellerId).select(
+    "location user"
+  );
+
+  if (!seller) {
+    throw new BadRequestError("Seller does not exist");
+  }
 
   /* =========================
-     NEW MEDIA RESOLUTION
+     MEDIA RESOLUTION
   ========================= */
   const images = await mediaService.resolve({
     files,
     fileIds,
-    context: context,
-    userId: data.seller
+    context: mediaContext,
+    userId: user.id
   });
 
-  const seller = await ProductSeller.findById(
-    data.seller
-  ).select("location");
-
-
-
-  data.categoryPath = category.path;
-  data.images = images;
-
   /* =========================
-     LOCATION INHERITANCE (SAFE)
+     LOCATION INHERITANCE
   ========================= */
   const coords = seller?.location?.coordinates;
 
-  console.log(coords);
-
-  if (
+  const location =
     Array.isArray(coords) &&
     isValidCoordinates(coords[0], coords[1])
-  ) {
-    data.location = buildLocation(
-      coords[0],
-      coords[1],
-      ""
-    );
-  }
+      ? buildLocation(coords[0], coords[1], "")
+      : undefined;
 
-  return Product.create(data);
+  /* =========================
+     FINAL PRODUCT PAYLOAD
+  ========================= */
+  const productPayload = {
+    ...data,
+
+    user: user.id,
+
+    seller: sellerId,
+
+    category: categoryId,
+
+    categoryPath: category.path,
+
+    images,
+
+    ...(location && { location })
+  };
+
+  return Product.create(productPayload);
 };
 
 /* =========================================================

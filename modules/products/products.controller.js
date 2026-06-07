@@ -4,13 +4,24 @@ import * as productService from "./products.service.js";
    CREATE PRODUCT
 ====================== */
 export const createProduct = async (req, res) => {
+
+
+
   const product = await productService.createProduct(
     {
-      ...req.validated?.body,
-      seller: req.user.id,
-      files: req.media?.images,
-      fileIds: req.validated?.body?.fileIds
+      data: req.validated.body,
+
+      user: req.user,
+
+      sellerId: req.user.productSeller,
+
+      categoryId: req.validated.body.category,
+
+      files: req.media?.images || [],
+
+      fileIds: req.validated.body.fileIds || []
     },
+    
     req.mediaContext?.images
   );
 
@@ -19,7 +30,6 @@ export const createProduct = async (req, res) => {
     data: product
   });
 };
-
 /* ======================
    GET ALL PRODUCTS
 ====================== */

@@ -69,7 +69,11 @@ const startServer = async () => {
     app.use(BASE_ROOT+"/sellerOrders",sellerOrderRoutes)
     app.use(BASE_ROOT+"/checkout",checkoutRoutes)
     app.use(BASE_ROOT+"/cart",cartRoutes)
-    app.use(BASE_ROOT+"/payment",paymentRoutes)
+    app.use(BASE_ROOT+"/payments",paymentRoutes)
+
+    app.use(BASE_ROOT+"/wallet",walletRoutes)
+    app.use(BASE_ROOT+"/walletTransactions",walletTransactionRoutes)
+    app.use(BASE_ROOT+"/WithdrawRequests",withdrawRequestRoutes)
 
     app.use(BASE_ROOT+"/chat/direct",directChatRoutes)
     app.use(BASE_ROOT+"/chat/group",groupChatRoutes)

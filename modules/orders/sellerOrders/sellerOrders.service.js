@@ -21,17 +21,23 @@ export const getMySellerOrders = async ({
   page = 1,
   limit = 10
 }) => {
+
+
   const query = { seller: sellerId };
 
   if (status) query.status = status;
 
-  return SellerOrder.find(query)
+  const sellerOrders = await SellerOrder.find(query)
     .populate("buyer")
     .populate("buyerOrder")
     .populate("paymentTransaction")
     .sort({ createdAt: -1 })
     .skip((page - 1) * limit)
     .limit(Number(limit));
+
+  console.log(sellerOrders);
+
+  return sellerOrders;
 };
 
 /* =========================================================
@@ -170,11 +176,9 @@ export const cancelSellerOrder = async ({
   return order;
 };
 
-/* =========================================================
-   DOMAIN BUILDER (PAYMENT SERVICE ONLY)
-========================================================= */
 export const createSellerOrdersFromBuyerOrder = async ({
   buyerOrder,
+  paymentTransaction,
   session
 }) => {
   const existing = await SellerOrder.findOne({
@@ -186,7 +190,8 @@ export const createSellerOrdersFromBuyerOrder = async ({
   const sellerMap = new Map();
 
   for (const item of buyerOrder.items) {
-    const sellerId = item.seller.toString();
+    const sellerId = item.seller?.toString();
+    if (!sellerId) continue;
 
     if (!sellerMap.has(sellerId)) {
       sellerMap.set(sellerId, []);
@@ -199,7 +204,7 @@ export const createSellerOrdersFromBuyerOrder = async ({
 
   for (const [sellerId, items] of sellerMap.entries()) {
     const totalAmount = items.reduce(
-      (sum, item) => sum + item.price * item.quantity,
+      (sum, item) => sum + (item.price || 0) * (item.quantity || 0),
       0
     );
 
@@ -211,7 +216,10 @@ export const createSellerOrdersFromBuyerOrder = async ({
           seller: sellerId,
           items,
           totalAmount,
-          status: SELLER_ORDER_STATUS.PAID
+          status: "paid",
+
+          // ✅ FIX IS HERE
+          paymentTransaction
         }
       ],
       { session }

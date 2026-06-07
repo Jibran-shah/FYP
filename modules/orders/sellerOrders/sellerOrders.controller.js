@@ -6,6 +6,9 @@ import * as sellerOrdersService from "./sellerOrders.service.js";
 export const getMySellerOrders = async (req, res) => {
   const sellerId = req.user?.productSeller;
 
+  console.log(req.user)
+  console.log(sellerId)
+
   if (!sellerId) {
     throw new Error("Unauthorized: Seller profile not found");
   }

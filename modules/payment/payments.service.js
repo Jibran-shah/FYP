@@ -1,5 +1,7 @@
 import mongoose from "mongoose";
 
+import { v4 as uuidv4 } from "uuid";
+
 import { BuyerOrder } from "../../models/BuyerOrder.model.js";
 import { PaymentTransaction } from "../../models/PaymentTransaction.model.js";
 import { Booking } from "../../models/Booking.model.js";
@@ -8,6 +10,92 @@ import { Wallet } from "../../models/Wallet.mode.js";
 import { WalletTransaction } from "../../models/WalletTransaction.model.js";
 
 import { createSellerOrdersFromBuyerOrder } from "../orders/sellerOrders/sellerOrders.service.js";
+
+/* =========================================================
+   CREATE PAYMENT TRANSACTION (MANUAL / CART / ORDER INIT)
+========================================================= */
+export const createPaymentTransaction = async ({
+  buyerId,
+  amount,
+  payableType,
+  payableId,
+  provider,
+  idempotencyKey
+}) => {
+  const existing = idempotencyKey
+    ? await PaymentTransaction.findOne({
+        buyer: buyerId,
+        idempotencyKey
+      })
+    : null;
+
+  if (existing) return existing;
+
+  const transaction = await PaymentTransaction.create({
+    buyer: buyerId,
+    amount,
+    provider,
+    payableType,
+    payableId,
+    status: "pending",
+    transactionId: uuidv4(),
+    idempotencyKey: idempotencyKey || null
+  });
+
+  return transaction;
+};
+
+/* =========================================================
+   GET MY PAYMENT TRANSACTIONS
+========================================================= */
+export const getMyPaymentTransactions = async ({
+  buyerId,
+  page = 1,
+  limit = 20
+}) => {
+  page = Math.max(Number(page), 1);
+  limit = Math.min(Math.max(Number(limit), 1), 100);
+
+  const [data, total] = await Promise.all([
+    PaymentTransaction.find({ buyer: buyerId })
+      .sort("-createdAt")
+      .skip((page - 1) * limit)
+      .limit(limit),
+
+    PaymentTransaction.countDocuments({ buyer: buyerId })
+  ]);
+
+  return {
+    data,
+    meta: {
+      total,
+      page,
+      pages: Math.ceil(total / limit),
+      limit
+    }
+  };
+};
+
+/* =========================================================
+   GET SINGLE PAYMENT TRANSACTION
+========================================================= */
+export const getPaymentTransactionById = async ({
+  transactionId,
+  buyerId
+}) => {
+  const transaction = await PaymentTransaction.findOne({
+    _id: transactionId,
+    buyer: buyerId
+  });
+
+  if (!transaction) {
+    throw new Error("Payment transaction not found");
+  }
+
+  return transaction;
+};
+
+
 
 /* =========================================================
    MAIN WEBHOOK ENTRY
@@ -87,6 +175,7 @@ const handleSuccess = async (transaction, session) => {
     // ================================
     const sellerOrders = await createSellerOrdersFromBuyerOrder({
       buyerOrder,
+      paymentTransaction: transaction._id,
       session
     });
 
