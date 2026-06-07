@@ -104,16 +104,16 @@ export const markAsShipped = async (req, res) => {
 };
 
 export const markAsDelivered = async (req, res) => {
-  const sellerId = req.user?.productSeller;
+  const buyerId = req.user?.id; // ✅ buyer, not seller
 
   const result = await sellerOrdersService.markAsDelivered({
     sellerOrderId: req.validated.params.sellerOrderId,
-    sellerId
+    buyerId
   });
 
   res.status(200).json({
     success: true,
-    message: "Seller order marked as delivered",
+    message: "Order marked as delivered by buyer confirmation",
     data: result
   });
 };
@@ -139,3 +139,4 @@ export const cancelSellerOrder = async (req, res) => {
     data: result
   });
 };
+

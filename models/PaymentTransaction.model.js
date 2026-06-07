@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import {
+  PAYABLE_TYPE,
   PAYMENT_STATUS,
   PAYMENT_STATUS_ARRAY
 } from "../constants/payment.constants.js";
@@ -20,7 +21,7 @@ const paymentTransactionSchema = new Schema(
 
     payableType: {
       type: String,
-      enum: ["order", "booking"],
+      enum: Object.values(PAYABLE_TYPE),
       required: true,
       index: true
     },

@@ -4,7 +4,7 @@ export const WALLET_TRANSACTION_TYPE = Object.freeze({
 
   WITHDRAW_REQUEST: "withdraw_request",
   WITHDRAW_APPROVED: "withdraw_approved",
-
+  RELEASE:"release",
   REFUND: "refund",
   ADJUSTMENT: "adjustment"
 });

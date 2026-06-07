@@ -13,6 +13,7 @@ const walletSchema = new Schema(
       unique: true,
       index: true
     },
+    
 
     availableBalance: {
       type: Number,

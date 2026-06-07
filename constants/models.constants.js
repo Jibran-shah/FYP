@@ -19,5 +19,7 @@ export const MODELS = Object.freeze({
     WALLET_TRANSACTION:"WalletTransaction",
     BOOKING:"Booking",
     PAYMENT_TRANSACTION:"PaymentTransaction",
-    WITHDRAW_REQUEST:"WithdrawRequest"
+    WITHDRAW_REQUEST:"WithdrawRequest",
+    SELLER_ORDER:"SellerOrder",
+    BUYER_ORDER:"BuyerOrder"
 });

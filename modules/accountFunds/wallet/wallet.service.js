@@ -1,29 +1,30 @@
 import mongoose from "mongoose";
 import { Wallet } from "../../../models/Wallet.mode.js";
 import { WalletTransaction } from "../../../models/WalletTransaction.model.js";
+import { WALLET_TRANSACTION_TYPE } from "../../../constants/wallet.constants.js";
 
 /* =========================
    GET OR CREATE WALLET
 ========================= */
-const getOrCreateWallet = async (userId, session = null) => {
-  let wallet = await Wallet.findOne({ userId }).session(session);
-
-  if (!wallet) {
-    const created = await Wallet.create(
-      [
-        {
-          userId,
-          availableBalance: 0,
-          pendingBalance: 0
-        }
-      ],
-      { session }
-    );
-
-    wallet = created[0];
-  }
-
-  return wallet;
+export const getOrCreateWallet = async (
+  userId,
+  session = null
+) => {
+  return Wallet.findOneAndUpdate(
+    { userId },
+    {
+      $setOnInsert: {
+        userId,
+        availableBalance: 0,
+        pendingBalance: 0
+      }
+    },
+    {
+      upsert: true,
+      new: true,
+      session
+    }
+  );
 };
 
 /* =========================
@@ -51,11 +52,16 @@ export const releaseWalletEarning = async ({
       throw new Error("Invalid amount");
     }
 
-    const wallet = await Wallet.findOne({ userId }).session(session);
+    const wallet = await getOrCreateWallet(userId,session);
 
     if (!wallet) {
       throw new Error("Wallet not found");
     }
+
+    console.log(wallet);
+
+    console.log(amount);
+    console.log(wallet.pendingBalance)
 
     if (wallet.pendingBalance < amount) {
       throw new Error("Insufficient pending balance");
@@ -72,7 +78,7 @@ export const releaseWalletEarning = async ({
         {
           wallet: wallet._id,
           userId,
-          type: "release",
+          type: WALLET_TRANSACTION_TYPE.RELEASE,
           amount,
           referenceId,
           referenceModel,
@@ -81,6 +87,8 @@ export const releaseWalletEarning = async ({
       ],
       { session }
     );
+
+    console.log(wallet);
 
     await session.commitTransaction();
     return wallet;

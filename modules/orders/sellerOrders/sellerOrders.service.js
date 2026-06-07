@@ -11,6 +11,8 @@ import {
 
 import { SELLER_ORDER_STATUS } from "../../../constants/order.constants.js";
 import { releaseWalletEarning } from "../../accountFunds/wallet/wallet.service.js";
+import { MODELS } from "../../../constants/models.constants.js";
+import ProductSeller from "../../../models/ProductSeller.model.js";
 
 /* =========================================================
    GET MY SELLER ORDERS
@@ -29,7 +31,6 @@ export const getMySellerOrders = async ({
 
   const sellerOrders = await SellerOrder.find(query)
     .populate("buyer")
-    .populate("buyerOrder")
     .populate("paymentTransaction")
     .sort({ createdAt: -1 })
     .skip((page - 1) * limit)
@@ -115,12 +116,9 @@ export const updateSellerOrderStatus = async ({
   return order;
 };
 
-/* =========================================================
-   MARK AS DELIVERED (ONLY ESCROW RELEASE POINT)
-========================================================= */
 export const markAsDelivered = async ({
   sellerOrderId,
-  sellerId
+  buyerId
 }) => {
   const order = await SellerOrder.findById(sellerOrderId);
 
@@ -128,26 +126,30 @@ export const markAsDelivered = async ({
     throw new NotFoundError("Seller order not found");
   }
 
-  assertOwnership(order, sellerId);
+  // ✅ MUST be the buyer of this order
+  if (String(order.buyer) !== String(buyerId)) {
+    throw new ForbiddenError("Only the buyer can confirm delivery");
+  }
 
   if (order.status !== SELLER_ORDER_STATUS.SHIPPED) {
-    throw new BadRequestError("Order must be shipped before delivery");
+    throw new BadRequestError("Order must be shipped before delivery confirmation");
   }
 
   order.status = SELLER_ORDER_STATUS.DELIVERED;
   await order.save();
 
-  // 🔥 ESCROW RELEASE (SINGLE SOURCE OF TRUTH)
+
+  const seller = await ProductSeller.findById(order.seller);
+
   await releaseWalletEarning({
-    userId: order.seller,
+    userId: seller.user,
     amount: order.totalAmount,
     referenceId: order._id,
-    referenceModel: "SellerOrder"
+    referenceModel: MODELS.SELLER_ORDER
   });
 
   return order;
 };
-
 /* =========================================================
    CANCEL ORDER
 ========================================================= */
@@ -185,13 +187,16 @@ export const createSellerOrdersFromBuyerOrder = async ({
     buyerOrder: buyerOrder._id
   }).session(session);
 
-  if (existing) return existing;
+  if (existing) return [existing];
 
   const sellerMap = new Map();
 
   for (const item of buyerOrder.items) {
     const sellerId = item.seller?.toString();
-    if (!sellerId) continue;
+
+    if (!sellerId) {
+      throw new BadRequestError("Cart item missing seller reference");
+    }
 
     if (!sellerMap.has(sellerId)) {
       sellerMap.set(sellerId, []);
@@ -204,7 +209,8 @@ export const createSellerOrdersFromBuyerOrder = async ({
 
   for (const [sellerId, items] of sellerMap.entries()) {
     const totalAmount = items.reduce(
-      (sum, item) => sum + (item.price || 0) * (item.quantity || 0),
+      (sum, item) =>
+        sum + (item.price || 0) * (item.quantity || 0),
       0
     );
 
@@ -216,9 +222,7 @@ export const createSellerOrdersFromBuyerOrder = async ({
           seller: sellerId,
           items,
           totalAmount,
-          status: "paid",
-
-          // ✅ FIX IS HERE
+          status: SELLER_ORDER_STATUS.PAID,
           paymentTransaction
         }
       ],
@@ -230,3 +234,50 @@ export const createSellerOrdersFromBuyerOrder = async ({
 
   return created;
 };
+
+export const markAsProcessing = async ({
+  sellerOrderId,
+  sellerId
+}) => {
+  const order = await SellerOrder.findById(sellerOrderId);
+
+  if (!order) {
+    throw new NotFoundError("Seller order not found");
+  }
+
+  assertOwnership(order, sellerId);
+
+  if (order.status !== SELLER_ORDER_STATUS.PAID) {
+    throw new BadRequestError("Order must be paid before processing");
+  }
+
+  order.status = SELLER_ORDER_STATUS.PROCESSING;
+  await order.save();
+
+  return order;
+};
+
+
+export const markAsShipped = async ({
+  sellerOrderId,
+  sellerId
+}) => {
+  const order = await SellerOrder.findById(sellerOrderId);
+
+  if (!order) {
+    throw new NotFoundError("Seller order not found");
+  }
+
+  assertOwnership(order, sellerId);
+
+  if (order.status !== SELLER_ORDER_STATUS.PROCESSING) {
+    throw new BadRequestError("Order must be processing before shipping");
+  }
+
+  order.status = SELLER_ORDER_STATUS.SHIPPED;
+  await order.save();
+
+  return order;
+};
+
+

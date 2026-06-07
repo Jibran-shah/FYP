@@ -5,3 +5,9 @@ export const PAYMENT_STATUS = Object.freeze({
 })
 
 export const PAYMENT_STATUS_ARRAY = Object.freeze(Object.values(PAYMENT_STATUS));
+
+
+export const PAYABLE_TYPE = Object.freeze({
+    ORDER: "order", 
+    BOOKING: "booking"
+})

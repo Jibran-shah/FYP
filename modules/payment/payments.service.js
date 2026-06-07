@@ -6,10 +6,19 @@ import { BuyerOrder } from "../../models/BuyerOrder.model.js";
 import { PaymentTransaction } from "../../models/PaymentTransaction.model.js";
 import { Booking } from "../../models/Booking.model.js";
 import { SellerOrder } from "../../models/SellerOrder.model.js";
-import { Wallet } from "../../models/Wallet.mode.js";
 import { WalletTransaction } from "../../models/WalletTransaction.model.js";
 
 import { createSellerOrdersFromBuyerOrder } from "../orders/sellerOrders/sellerOrders.service.js";
+import { getOrCreateWallet } from "../accountFunds/wallet/wallet.service.js";
+import ProductSeller from "../../models/ProductSeller.model.js";
+import { MODELS } from "../../constants/models.constants.js";
+import { WALLET_TRANSACTION_STATUS, WALLET_TRANSACTION_TYPE } from "../../constants/wallet.constants.js";
+import { BOOKING_STATUS } from "../../constants/booking.constants.js";
+import { PAYABLE_TYPE } from "../../constants/payment.constants.js";
+import { logger } from "../../config/logger.js";
+import { BUYER_ORDER_STATUS } from "../../constants/order.constants.js";
+import { ServiceProvider } from "../../models/ServiceProvider.model.js";
+
 
 /* =========================================================
    CREATE PAYMENT TRANSACTION (MANUAL / CART / ORDER INIT)
@@ -155,7 +164,7 @@ export const handlePaymentWebhook = async ({
    SUCCESS FLOW (ESCROW RELEASE)
 ========================================================= */
 const handleSuccess = async (transaction, session) => {
-  if (transaction.payableType === "order") {
+  if (transaction.payableType === PAYABLE_TYPE.ORDER) {
     const buyerOrder = await BuyerOrder.findById(
       transaction.payableId
     ).session(session);
@@ -165,9 +174,9 @@ const handleSuccess = async (transaction, session) => {
     }
 
     // already processed guard
-    if (buyerOrder.status === "paid") return;
+    if (buyerOrder.status === BUYER_ORDER_STATUS.PAID) return;
 
-    buyerOrder.status = "paid";
+    buyerOrder.status = BUYER_ORDER_STATUS.PAID;
     await buyerOrder.save({ session });
 
     // ================================
@@ -186,103 +195,107 @@ const handleSuccess = async (transaction, session) => {
     // FIX 2: WALLET DISTRIBUTION SAFE
     // ================================
     for (const sellerOrder of sellerOrders) {
-      const sellerId = sellerOrder.seller?.toString();
-      if (!sellerId) continue;
 
-      // prevent double credit
+      const sellerId = sellerOrder.seller?.toString();
+
+      const seller = await ProductSeller.findById(sellerId).session(session);
+
+      if (!seller) continue;
+
+      const sellerUserId = seller.user;
+
       const existingTxn = await WalletTransaction.findOne({
-        referenceModel: "SellerOrder",
+        referenceModel: MODELS.SELLER_ORDER,
         referenceId: sellerOrder._id
       }).session(session);
 
       if (existingTxn) continue;
 
-      let wallet = await Wallet.findOne({
-        userId: sellerId
-      }).session(session);
+      const wallet = await getOrCreateWallet(
+        sellerUserId,
+        session
+      );
 
-      if (!wallet) {
-        const created = await Wallet.create(
-          [{ userId: sellerId, pendingBalance: 0 }],
-          { session }
-        );
-        wallet = created[0];
-      }
+      wallet.pendingBalance =
+        (wallet.pendingBalance || 0) +
+        (sellerOrder.totalAmount || 0);
 
-      wallet.pendingBalance += sellerOrder.totalAmount || 0;
       await wallet.save({ session });
 
       await WalletTransaction.create(
         [
           {
             wallet: wallet._id,
-            userId: sellerId,
-            type: "order_earning",
+            userId: sellerUserId,
+            type: WALLET_TRANSACTION_TYPE.ORDER_EARNING,
             amount: sellerOrder.totalAmount || 0,
-            referenceModel: "SellerOrder",
+            referenceModel: MODELS.SELLER_ORDER,
             referenceId: sellerOrder._id,
-            status: "pending"
+            status: WALLET_TRANSACTION_STATUS.PENDING
           }
         ],
         { session }
       );
     }
-  }
+  } 
 
-  /* =========================
-     BOOKING SUCCESS
-  ========================= */
-  if (transaction.payableType === "booking") {
+  else if (transaction.payableType === PAYABLE_TYPE.BOOKING) {
     const booking = await Booking.findById(
       transaction.payableId
     ).session(session);
 
     if (!booking) return;
 
-    if (booking.status === "confirmed") return;
+    if (booking.status === BOOKING_STATUS.CONFIRMED) return;
 
-    booking.status = "confirmed";
+    booking.status = BOOKING_STATUS.CONFIRMED;
     await booking.save({ session });
 
-    const providerId = booking.serviceProvider?.toString();
-    if (!providerId) return;
+    const provider = await ServiceProvider.findById(
+      booking.serviceProvider
+    ).session(session);
+
+    if (!provider) {
+      throw new Error("Service provider not found");
+    }
+
+    const providerUserId = provider.user;
 
     const existingTxn = await WalletTransaction.findOne({
-      referenceModel: "Booking",
+      referenceModel: MODELS.BOOKING,
       referenceId: booking._id
     }).session(session);
 
     if (existingTxn) return;
 
-    let wallet = await Wallet.findOne({
-      userId: providerId
-    }).session(session);
+    const wallet = await getOrCreateWallet(
+      providerUserId,
+      session
+    );
 
-    if (!wallet) {
-      const created = await Wallet.create(
-        [{ userId: providerId, pendingBalance: 0 }],
-        { session }
-      );
-      wallet = created[0];
-    }
+    wallet.pendingBalance =
+      (wallet.pendingBalance || 0) +
+      (booking.price || 0);
 
-    wallet.pendingBalance += booking.price || 0;
     await wallet.save({ session });
 
     await WalletTransaction.create(
       [
         {
           wallet: wallet._id,
-          userId: providerId,
-          type: "booking_earning",
+          userId: providerUserId,
+          type: WALLET_TRANSACTION_TYPE.BOOKING_EARNING,
           amount: booking.price || 0,
-          referenceModel: "Booking",
+          referenceModel: MODELS.BOOKING,
           referenceId: booking._id,
-          status: "pending"
+          status: WALLET_TRANSACTION_STATUS.PENDING
         }
       ],
       { session }
     );
+  }
+  else{
+    logger.error("invalid payable type");
   }
 };
 
