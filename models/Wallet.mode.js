@@ -1,18 +1,11 @@
 import mongoose from "mongoose";
 import { MODELS } from "../constants/models.constants.js";
+import { BadRequestError } from "../errors/Http.error.js";
 
 const { Schema, model, Types } = mongoose;
 
-/*
-=====================================================
-WALLET MODEL (SIMPLE)
-=====================================================
-*/
 const walletSchema = new Schema(
   {
-    /*
-    👤 Owner
-    */
     userId: {
       type: Types.ObjectId,
       ref: MODELS.USER,
@@ -21,24 +14,16 @@ const walletSchema = new Schema(
       index: true
     },
 
-    /*
-    💰 Money available for spending
-    */
     availableBalance: {
       type: Number,
       default: 0,
-      min: 0,
-      index: true
+      min: 0
     },
 
-    /*
-    ⏳ Money locked (orders, pending payments, disputes)
-    */
     pendingBalance: {
       type: Number,
       default: 0,
-      min: 0,
-      index: true
+      min: 0
     }
   },
   {
@@ -47,27 +32,29 @@ const walletSchema = new Schema(
   }
 );
 
-/*
-=====================================================
-HELPER METHODS
-=====================================================
-*/
+/* =========================
+   ADD FUNDS (FINAL CREDIT ONLY)
+========================= */
+walletSchema.methods.addFunds = function (amount) {
+  if (amount <= 0) {
+    throw new BadRequestError("Invalid amount");
+  }
 
-/*
-Add money → available balance
-*/
-walletSchema.methods.credit = function (amount) {
   this.availableBalance += amount;
   return this.save();
 };
 
-/*
-Move money from available → pending (lock funds)
-*/
-walletSchema.methods.freeze = function (amount) {
+/* =========================
+   RESERVE FUNDS (ESCROW LOCK)
+   available → pending
+========================= */
+walletSchema.methods.reserveFunds = function (amount) {
+  if (amount <= 0) {
+    throw new BadRequestError("Invalid amount");
+  }
 
   if (this.availableBalance < amount) {
-    throw new Error("Insufficient balance");
+    throw new BadRequestError("Insufficient available balance");
   }
 
   this.availableBalance -= amount;
@@ -76,27 +63,17 @@ walletSchema.methods.freeze = function (amount) {
   return this.save();
 };
 
-/*
-Confirm pending → available stays reduced (finalize spend)
-*/
-walletSchema.methods.confirm = function (amount) {
-
-  if (this.pendingBalance < amount) {
-    throw new Error("Insufficient pending balance");
+/* =========================
+   RELEASE RESERVED FUNDS (ESCROW FINALIZATION)
+   pending → available
+========================= */
+walletSchema.methods.releaseReservedFunds = function (amount) {
+  if (amount <= 0) {
+    throw new BadRequestError("Invalid amount");
   }
 
-  this.pendingBalance -= amount;
-
-  return this.save();
-};
-
-/*
-Release pending → back to available (refund/cancel)
-*/
-walletSchema.methods.release = function (amount) {
-
   if (this.pendingBalance < amount) {
-    throw new Error("Insufficient pending balance");
+    throw new BadRequestError("Insufficient pending balance");
   }
 
   this.pendingBalance -= amount;
@@ -105,9 +82,22 @@ walletSchema.methods.release = function (amount) {
   return this.save();
 };
 
-/*
-=====================================================
-MODEL
-=====================================================
-*/
+/* =========================
+   COMPLETE RESERVED FUNDS (FINAL CONSUMPTION)
+   pending → removed (withdrawal or payout completed)
+========================= */
+walletSchema.methods.completeReservedFunds = function (amount) {
+  if (amount <= 0) {
+    throw new BadRequestError("Invalid amount");
+  }
+
+  if (this.pendingBalance < amount) {
+    throw new BadRequestError("Insufficient pending balance");
+  }
+
+  this.pendingBalance -= amount;
+
+  return this.save();
+};
+
 export const Wallet = model(MODELS.WALLET, walletSchema);

@@ -12,8 +12,6 @@ import { InternalServerError } from "../../errors/Http.error.js";
 export const emailProcessor = async (job) => {
   const { type, to, data = {} } = job.data || {};
 
-  console.log(job.data);
-
   if (!type || !to) {
     throw new InternalServerError("Invalid email job payload");
   }

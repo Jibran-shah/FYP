@@ -1,12 +1,11 @@
 import Joi from "joi";
-import { mongoIdSchema, requiredMsg } from "../../../validationSchemas/general.schemas";
-import { GROUP_CHAT_ROLES_ARRAY } from "../../../constants/chat.constants";
+import { GROUP_CHAT_ROLES_ARRAY } from "../../../constants/chat.constants.js";
+import { mongoIdSchema } from "../../../validationSchemas/mongodb.schemas.js";
 
 export const createGroupSchema = Joi.object({
   name: Joi.string().min(3).max(100).required(),
-
   description: Joi.string().allow("").max(500),
-
+  avatar:mongoIdSchema.optional(),
   members: Joi.array()
     .items(mongoIdSchema.required())
     .default([])
@@ -20,7 +19,7 @@ export const addMembersSchema = Joi.object({
 });
 
 export const removeMemberSchema = Joi.object({
-  memberId: mongoIdSchema.required().message(requiredMsg("memberId"))
+  memberId: mongoIdSchema.required().label("memberId")
 });
 
 
@@ -37,6 +36,6 @@ export const updateGroupSchema = Joi.object({
 }).min(1);
 
 export const changeRoleSchema = Joi.object({
-  memberId: mongoIdSchema.required().message(requiredMsg("memberId")),
+  memberId: mongoIdSchema.required().label("memberId"),
   role: Joi.string().valid(...GROUP_CHAT_ROLES_ARRAY).required()
 });

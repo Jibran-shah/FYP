@@ -1,5 +1,6 @@
 import Joi from "joi";
-import { mongoIdOrNullSchema, mongoIdSchema } from "../../validationSchemas/general.schemas.js";
+import { mongoIdSchema } from "../../validationSchemas/mongodb.schemas.js";
+import { mongoIdOrNullSchema } from "../../validationSchemas/general.schemas.js";
 
 /* ======================
    CREATE CATEGORY

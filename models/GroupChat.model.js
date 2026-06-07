@@ -172,11 +172,7 @@ const GroupChatSchema = new Schema(
   }
 );
 
-/* =========================
-   VALIDATION
-========================= */
-
-GroupChatSchema.pre("validate", function (next) {
+GroupChatSchema.pre("validate", async function () {
   /*
   Active members only
   */
@@ -188,11 +184,7 @@ GroupChatSchema.pre("validate", function (next) {
   Minimum 2 active users
   */
   if (activeMembers.length < 2) {
-    return next(
-      new Error(
-        "Group chat must have at least 2 active members"
-      )
-    );
+    throw new Error("Group chat must have at least 2 active members");
   }
 
   /*
@@ -203,11 +195,7 @@ GroupChatSchema.pre("validate", function (next) {
   );
 
   if (new Set(userIds).size !== userIds.length) {
-    return next(
-      new Error(
-        "Duplicate members are not allowed"
-      )
-    );
+    throw new Error("Duplicate members are not allowed");
   }
 
   /*
@@ -218,11 +206,7 @@ GroupChatSchema.pre("validate", function (next) {
   ).length;
 
   if (adminCount < 1) {
-    return next(
-      new Error(
-        "Group chat must have at least one admin"
-      )
-    );
+    throw new Error("Group chat must have at least one admin");
   }
 
   /*
@@ -230,24 +214,17 @@ GroupChatSchema.pre("validate", function (next) {
   */
   const creatorExists = activeMembers.some(
     member =>
-      member.userId.toString() ===
-      this.createdBy.toString()
+      member.userId.toString() === this.createdBy.toString()
   );
 
   if (!creatorExists) {
-    return next(
-      new Error(
-        "Group creator must remain an active member"
-      )
-    );
+    throw new Error("Group creator must remain an active member");
   }
 
   /*
   Sync cached member count
   */
   this.memberCount = activeMembers.length;
-
-  next();
 });
 
 /* =========================

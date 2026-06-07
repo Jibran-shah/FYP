@@ -1,6 +1,5 @@
 import Joi from "joi";
-import { objectId } from "../../../validationSchemas/mongodb.schemas.js";
-import { mongoIdSchema } from "../../../validationSchemas/general.schemas.js";
+import { mongoIdSchema } from "../../../validationSchemas/mongodb.schemas.js";
 
 
 /* =========================================================
@@ -83,7 +82,7 @@ export const getAllServiceProviderQuerySchema = Joi.object({
 
   isApproved: Joi.boolean().optional(),
 
-  user: Joi.string().custom(objectId).optional(),
+  user: mongoIdSchema.optional(),
 
   /* =========================================================
      GEO QUERY (NEARBY SEARCH)
@@ -106,7 +105,7 @@ export const getAllServiceProviderQuerySchema = Joi.object({
    PARAM VALIDATION
 ========================================================= */
 export const serviceProviderIdParamSchema = Joi.object({
-  id: mongoIdSchema.required()
+  id: mongoIdSchema.required().label("id")
 });
 
 

@@ -1,5 +1,6 @@
 import Joi from "joi";
-import { emailSchema, mongoIdSchema, otpSchema, passwordSchema, requiredMsg, userNameSchema } from "../../validationSchemas/general.schemas.js";
+import { emailSchema, otpSchema, passwordSchema, requiredMsg, userNameSchema } from "../../validationSchemas/general.schemas.js";
+import { mongoIdSchema } from "../../validationSchemas/mongodb.schemas.js";
 
 export const registerSchema = Joi.object({
   userName: userNameSchema.required().messages(requiredMsg("userName")),

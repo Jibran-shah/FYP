@@ -36,8 +36,6 @@ export const runConsumer = async () => {
             }
         }
 
-        console.log(topic,events);
-
         if (events.length) {
             await handleKafkaBatch(topic, events);
         }

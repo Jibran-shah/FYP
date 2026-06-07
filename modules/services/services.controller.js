@@ -6,7 +6,7 @@ import * as serviceService from "./services.service.js";
 export const createService = async (req, res) => {
   const service = await serviceService.createService({
     ...req.validated?.body,
-    provider: req.user.id
+    user: req.user
   });
 
   res.status(201).json({
@@ -30,7 +30,7 @@ export const getServices = async (req, res) => {
    GET MY SERVICES (SELLER)
 ========================================================= */
 export const getServicesByProvider = async (req, res) => {
-  const services = await serviceService.getServicesByProvider(req.user.id);
+  const services = await serviceService.getServicesByProvider(req.validated?.params?.provider);
 
   res.json({
     success: true,

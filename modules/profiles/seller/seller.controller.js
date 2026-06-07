@@ -19,6 +19,7 @@ export const createProductSeller = async (req, res) => {
     AUTH_CONFIG.REFRESH_TOKEN.EXPIRY
   );
 
+
   setCookie(
     res,
     AUTH_CONFIG.REFRESH_TOKEN.COOKIE_NAME,
@@ -85,7 +86,7 @@ export const updateProductSeller = async (req, res) => {
     req.validated?.params.id,
     {
       ...req.validated?.body,
-      shopLogoFile: req.media?.shopLogo || [],
+      shopLogoFile: req.media?.shopLogoFile,
       shopLogoId: req.validated?.body?.shopLogoId,
       mediaContext: req.mediaContext
     },

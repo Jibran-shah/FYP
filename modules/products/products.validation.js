@@ -1,10 +1,11 @@
 import Joi from "joi";
 import { PRODUCT_STATUS_ARRAY } from "../../constants/product.constants.js";
-import { mongoIdOrNullSchema, mongoIdSchema, requiredMsg } from "../../validationSchemas/general.schemas.js";
+import { mongoIdOrNullSchema } from "../../validationSchemas/general.schemas.js";
+import { mongoIdSchema } from "../../validationSchemas/mongodb.schemas.js";
 
 
 export const createProductSchema = Joi.object({
-  category: mongoIdSchema.required().messages(requiredMsg("category")),
+  category: mongoIdSchema.required().label("category"),
 
   name: Joi.string()
     .trim()
@@ -85,10 +86,10 @@ export const productQuerySchema = Joi.object({
 
 
 export const idParamSchema = Joi.object({
-  id: mongoIdSchema.required().messages(requiredMsg("mongoIdSchema"))
+  id: mongoIdSchema.required().label("id")
 });
 
 
 export const categoryParamSchema = Joi.object({
-  categoryId: mongoIdSchema.required().messages(requiredMsg("categoryId"))
+  categoryId: mongoIdSchema.required().label("category")
 });

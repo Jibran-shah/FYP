@@ -8,7 +8,6 @@ const { Schema } = mongoose;
 
 const productSchema = new Schema(
   {
-
     seller: {
       type: Schema.Types.ObjectId,
       ref: "ProductSeller",
@@ -93,32 +92,34 @@ const productSchema = new Schema(
       index: true
     },
 
+    /* =========================
+       LOCATION (UNIFIED MODEL)
+    ========================= */
     location: {
-      type: {
-        type: String,
-        enum: ["Point"],
-        default: "Point",
-        required: true
-      },
-
       coordinates: {
         type: [Number], // [lng, lat]
         default: undefined,
         validate: {
-          validator: function (val) {
-            if (!val) return true; // allow optional location
+          validator(value) {
+            if (!value || value.length === 0) return true;
 
             return (
-              Array.isArray(val) &&
-              val.length === 2 &&
-              val[0] >= -180 &&
-              val[0] <= 180 &&
-              val[1] >= -90 &&
-              val[1] <= 90
+              Array.isArray(value) &&
+              value.length === 2 &&
+              value[0] >= -180 &&
+              value[0] <= 180 &&
+              value[1] >= -90 &&
+              value[1] <= 90
             );
           },
           message: "Invalid coordinates [lng, lat]"
         }
+      },
+
+      fullAddress: {
+        type: String,
+        trim: true,
+        default: ""
       }
     }
   },
@@ -127,9 +128,9 @@ const productSchema = new Schema(
   }
 );
 
-/* =========================================================
-   STATUS AUTO-FIX (SAFE)
-========================================================= */
+/* =========================
+   AUTO STATUS FIX
+========================= */
 productSchema.pre("save", function () {
   if (this.quantityAvailable <= 0) {
     this.status = PRODUCT_STATUSES.SOLD_OUT;
@@ -141,15 +142,16 @@ productSchema.pre("save", function () {
   }
 });
 
-/* =========================================================
-   INDEXES (FIXED GEO INDEX POSITION)
-========================================================= */
-productSchema.index({ category: 1, price: 1 });
+/* =========================
+   INDEXES
+========================= */
 productSchema.index({ seller: 1, status: 1 });
+productSchema.index({ category: 1, price: 1 });
 productSchema.index({ categoryPath: 1 });
 productSchema.index({ categoryPath: 1, price: 1 });
 
-/* IMPORTANT: correct 2dsphere index */
-productSchema.index({ location: "2dsphere" });
+/* IMPORTANT: correct geospatial index */
+productSchema.index({ "location.coordinates": "2dsphere" });
 
-export default (mongoose.models.Product || mongoose.model("Product", productSchema))
+export default mongoose.models.Product ||
+  mongoose.model("Product", productSchema);

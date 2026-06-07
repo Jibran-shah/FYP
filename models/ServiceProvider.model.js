@@ -1,10 +1,10 @@
 import mongoose from "mongoose";
+import { isValidCoordinates } from "../utils/location.utils.js";
 
 const { Schema } = mongoose;
 
 const serviceProviderSchema = new Schema(
   {
-
     user: {
       type: Schema.Types.ObjectId,
       ref: "User",
@@ -13,7 +13,6 @@ const serviceProviderSchema = new Schema(
       index: true,
     },
 
-
     title: {
       type: String,
       required: true,
@@ -21,13 +20,11 @@ const serviceProviderSchema = new Schema(
       maxlength: 120,
     },
 
-
     description: {
       type: String,
       trim: true,
       maxlength: 1000,
     },
-
 
     skills: {
       type: [String],
@@ -42,38 +39,32 @@ const serviceProviderSchema = new Schema(
       min: 0,
     },
 
+    /* =========================
+       LOCATION
+    ========================= */
     location: {
-      type: {
-        type: String,
-        enum: ["Point"],
-        default: "Point"
-      },
       coordinates: {
-        type: [Number], // [longitude, latitude]
+        type: [Number], // [lng, lat]
+
         validate: {
-          validator: function (value) {
+          validator(value) {
+            if (!value || value.length === 0) return true;
+
             return (
               Array.isArray(value) &&
               value.length === 2 &&
-              value[0] >= -180 &&
-              value[0] <= 180 &&
-              value[1] >= -90 &&
-              value[1] <= 90
+              isValidCoordinates(value[0], value[1])
             );
           },
           message:
-            "Coordinates must be [longitude, latitude] with valid ranges."
-        }
+            "Coordinates must be [longitude, latitude] with valid ranges.",
+        },
       },
 
-      address: {
-        country: { type: String, trim: true },
-        state: { type: String, trim: true },
-        city: { type: String, trim: true },
-        area: { type: String, trim: true },
-        fullAddress: { type: String, trim: true }
-      }
-      
+      fullAddress: {
+        type: String,
+        trim: true
+      },
     },
 
     isApproved: {
@@ -82,37 +73,48 @@ const serviceProviderSchema = new Schema(
       index: true,
     },
 
-
     ratingSum: {
       type: Number,
       default: 0,
-      min: 0
+      min: 0,
     },
-
 
     ratingCount: {
       type: Number,
       default: 0,
-      min: 0
+      min: 0,
     },
-
 
     ratingAverage: {
       type: Number,
       default: 0,
       min: 0,
       max: 5,
-      index: true
-    }
-    
+      index: true,
+    },
   },
   {
     timestamps: true,
   }
 );
 
+/* =========================
+   INDEXES
+========================= */
+
 serviceProviderSchema.index({ experienceYears: 1 });
 serviceProviderSchema.index({ ratingAverage: -1 });
 serviceProviderSchema.index({ ratingCount: -1 });
 
-export default mongoose.model("ServiceProvider", serviceProviderSchema);
+/*
+  Geo index on coordinates only.
+  Address-only documents are valid.
+*/
+serviceProviderSchema.index({
+  "location.coordinates": "2dsphere",
+});
+
+export const ServiceProvider =  mongoose.model(
+  "ServiceProvider",
+  serviceProviderSchema
+);

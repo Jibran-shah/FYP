@@ -1,5 +1,3 @@
-// models/ProductSeller.js
-
 import mongoose from "mongoose";
 
 const productSellerSchema = new mongoose.Schema(
@@ -20,7 +18,7 @@ const productSellerSchema = new mongoose.Schema(
 
     shopLogo: {
       type: mongoose.Schema.Types.ObjectId,
-      ref:"MediaAsset"
+      ref: "MediaAsset"
     },
 
     shopDescription: {
@@ -28,16 +26,16 @@ const productSellerSchema = new mongoose.Schema(
       maxlength: 1000
     },
 
+    /* =========================
+       LOCATION (UNIFIED FORMAT)
+    ========================= */
     location: {
-      type: {
-        type: String,
-        enum: ["Point"],
-        default: "Point"
-      },
       coordinates: {
-        type: [Number], // [longitude, latitude]
+        type: [Number], // [lng, lat]
         validate: {
-          validator: function (value) {
+          validator(value) {
+            if (!value || value.length === 0) return true;
+
             return (
               Array.isArray(value) &&
               value.length === 2 &&
@@ -52,14 +50,11 @@ const productSellerSchema = new mongoose.Schema(
         }
       },
 
-      address: {
-        country: { type: String, trim: true, default:"" },
-        state: { type: String, trim: true, default:"" },
-        city: { type: String, trim: true, default:"" },
-        area: { type: String, trim: true, default:"" },
-        fullAddress: { type: String, trim: true, default:"" }
+      fullAddress: {
+        type: String,
+        trim: true,
+        default: ""
       }
-      
     },
 
     isApproved: {
@@ -97,9 +92,13 @@ const productSellerSchema = new mongoose.Schema(
   }
 );
 
+/* =========================
+   INDEXES (IMPORTANT FIX)
+========================= */
 
-productSellerSchema.index({ location: "2dsphere" });
-
+/* correct geospatial index */
+productSellerSchema.index({
+  "location.coordinates": "2dsphere"
+});
 
 export default mongoose.model("ProductSeller", productSellerSchema);
-

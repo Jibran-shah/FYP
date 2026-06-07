@@ -6,7 +6,7 @@ import { mediaService } from "../../media/media.service.js";
 import { parseMongoDuplicateError } from "../../../utils/errorHandling.utils.js";
 import { generateAccessToken, generateRefreshToken, parseExpiresToSeconds } from "../../../utils/token.utils.js";
 import { refreshSessionSystem } from "../../../utils/session.utils.js";
-import ServiceProviderModel from "../../../models/ServiceProvider.model.js";
+import {ServiceProvider} from "../../../models/ServiceProvider.model.js";
 import ProductSellerModel from "../../../models/ProductSeller.model.js";
 import { AUTH_CONFIG } from "../../../config/auth.config.js";
 
@@ -283,7 +283,7 @@ export const deleteProfile = async (userId) => {
 
     await Profile.deleteOne({ _id: profile._id }).session(session);
 
-    await ServiceProviderModel.deleteOne({ user: userId }).session(session);
+    await {ServiceProvider}.deleteOne({ user: userId }).session(session);
     await ProductSellerModel.deleteOne({ user: userId }).session(session);
 
     await User.findByIdAndDelete(userId);

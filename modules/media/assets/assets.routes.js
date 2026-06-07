@@ -4,6 +4,7 @@ import {
   createMediaAsset,
   getAllMediaAssets,
   getMediaAssetById,
+  getMediaAssetsByUserId,
   updateMediaAsset,
   deleteMediaAsset,
   bulkDeleteMediaAssets
@@ -46,9 +47,14 @@ router.delete(
   asyncHandler(bulkDeleteMediaAssets)
 );
 
-// ------------------------
-// READ ONE
-// ------------------------
+
+router.get(
+  "/:id/user",
+  validate(mediaAssetIdParamSchema, "params"),
+  asyncHandler(getMediaAssetsByUserId)
+);
+
+
 router.get(
   "/:id",
   validate(mediaAssetIdParamSchema, "params"),

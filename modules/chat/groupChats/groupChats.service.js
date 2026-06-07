@@ -1,4 +1,4 @@
-import { GroupChat } from "../models/GroupChat.model.js";
+import { GroupChat } from "../../../models/GroupChat.model.js";
 import { roomStore } from "../../../realtime/utils/room.store.js";
 
 /*
@@ -7,7 +7,7 @@ CREATE GROUP
 =====================================================
 */
 export const createGroupService = async (creatorId, data) => {
-  const { name, description = "", members = [] } = data;
+  const { name, description = "", members = [], avatar } = data;
 
   const uniqueMembers = Array.from(
     new Set([creatorId.toString(), ...members.map(String)])
@@ -16,6 +16,7 @@ export const createGroupService = async (creatorId, data) => {
   const group = await GroupChat.create({
     name,
     description,
+    avatar,
     createdBy: creatorId,
     members: uniqueMembers.map(userId => ({
       userId,

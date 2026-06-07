@@ -32,8 +32,6 @@ router.use(protect({requireBaseProfile:true}));
 /*
 Create group
 */
-
-createG
 router.post(
   "/",
   validate(createGroupSchema),

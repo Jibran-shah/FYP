@@ -1,5 +1,5 @@
 import Joi from "joi";
-import { objectId } from "./mongodb.schemas.js";
+import { mongoIdSchema} from "./mongodb.schemas.js";
 
 export const emailSchema = Joi.string()
   .email({ tlds: { allow: false } })
@@ -62,9 +62,6 @@ export const otpSchema =  Joi.string()
       "string.length": "OTP must be 6 digits",
       "string.pattern.base": "OTP must contain only numbers",
     })
-
-export const mongoIdSchema = Joi.string()
-    .custom(objectId)
 
 
 export const mongoIdOrNullSchema =Joi.alternatives().try(

@@ -4,8 +4,6 @@ export async function messageConsumer(events) {
   try {
     const ops = [];
 
-    console.log(events+"\n\n\n\n");
-
     for (const e of events) {
       if (e?.__invalid) continue;
 

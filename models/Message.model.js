@@ -1,29 +1,46 @@
 import mongoose from "mongoose";
-import {
-  MESSAGE_CATEGORIES,
-  MESSAGE_CATEGORIES_ARRAY,
-  MESSAGE_STATUSES,
-  MESSAGE_STATUSES_ARRAY
-} from "../constants/chat.constants";
-import { MODELS } from "../constants/models.constants";
+import { MODELS } from "../constants/models.constants.js";
 
-const { Schema, model, Types } = mongoose;
+const { Schema, Types, model } = mongoose;
 
+/* =========================
+   MESSAGE TYPES
+========================= */
+export const MESSAGE_TYPES = {
+  TEXT: "text",
+  IMAGE: "image",
+  VIDEO: "video",
+  AUDIO: "audio",
+  FILE: "file",
+  SYSTEM: "system"
+};
+
+export const MESSAGE_TYPES_ARRAY = Object.values(MESSAGE_TYPES);
+
+/* =========================
+   MESSAGE SCHEMA
+========================= */
 const messageSchema = new Schema(
   {
-    /*
-    Chat reference
-    */
+    /* =========================
+       CHAT (DIRECT OR GROUP)
+    ========================= */
     chatId: {
       type: Types.ObjectId,
-      ref: MODELS.DIRECT_CHAT,
       required: true,
-      index: true
+      index: true,
+      refPath: "chatModel"
     },
 
-    /*
-    Sender
-    */
+    chatModel: {
+      type: String,
+      required: true,
+      enum: ["DirectChat", "GroupChat"]
+    },
+
+    /* =========================
+       SENDER
+    ========================= */
     senderId: {
       type: Types.ObjectId,
       ref: MODELS.USER,
@@ -31,91 +48,84 @@ const messageSchema = new Schema(
       index: true
     },
 
-    /*
-    Message type
-    */
+    /* =========================
+       MESSAGE TYPE
+    ========================= */
     type: {
       type: String,
-      enum: MESSAGE_CATEGORIES_ARRAY,
-      default: MESSAGE_CATEGORIES.TEXT,
-      required: true,
+      enum: MESSAGE_TYPES_ARRAY,
+      default: MESSAGE_TYPES.TEXT,
       index: true
     },
 
-    /*
-    Text content
-    */
-    content: {
+    /* =========================
+       CONTENT
+    ========================= */
+    text: {
       type: String,
       trim: true,
       maxlength: 5000,
       default: ""
     },
 
-    /*
-    Media references (ONLY pointers)
-    Media access is controlled via MediaAttachment model
-    */
-    mediaAssets: [
+    /* =========================
+       MEDIA (simple array of asset ids)
+    ========================= */
+    media: [
       {
         type: Types.ObjectId,
         ref: MODELS.MEDIA_ASSET
       }
     ],
 
-    /*
-    Reply support
-    */
+    /* =========================
+       REPLY SUPPORT
+    ========================= */
     replyTo: {
       type: Types.ObjectId,
       ref: MODELS.MESSAGE,
-      default: null,
-      index: true
+      default: null
     },
 
-    /*
-    Message status
-    */
-    status: {
-      type: String,
-      enum: MESSAGE_STATUSES_ARRAY,
-      default: MESSAGE_STATUSES.SENT,
-      index: true
-    },
-
-    /*
-    Delivery + read tracking
-    */
-    delivery: [
+    /* =========================
+       STATUS TRACKING (SIMPLE)
+    ========================= */
+    deliveredAt: [
       {
         userId: {
           type: Types.ObjectId,
-          ref: MODELS.USER,
-          required: true
+          ref: MODELS.USER
         },
-        deliveredAt: {
-          type: Date,
-          default: null
-        },
-        readAt: {
-          type: Date,
-          default: null
-        }
+        at: Date
       }
     ],
 
-    /*
-    Edit tracking
-    */
-    edited: {
-      isEdited: {
-        type: Boolean,
-        default: false
-      },
-      editedAt: {
-        type: Date,
-        default: null
+    readAt: [
+      {
+        userId: {
+          type: Types.ObjectId,
+          ref: MODELS.USER
+        },
+        at: Date
       }
+    ],
+
+    /* =========================
+       EDITING
+    ========================= */
+    isEdited: {
+      type: Boolean,
+      default: false
+    },
+
+    editedAt: Date,
+
+    /* =========================
+       DELETION (optional but useful)
+    ========================= */
+    isDeleted: {
+      type: Boolean,
+      default: false
     }
   },
   {
@@ -124,100 +134,37 @@ const messageSchema = new Schema(
   }
 );
 
-/*
-========================
-INDEXES
-========================
-*/
+/* =========================
+   INDEXES
+========================= */
+messageSchema.index({ chatId: 1, createdAt: -1 });
+messageSchema.index({ senderId: 1, createdAt: -1 });
+messageSchema.index({ replyTo: 1 });
 
-/*
-Chat message pagination (MOST IMPORTANT)
-*/
-messageSchema.index({
-  chatId: 1,
-  createdAt: -1
-});
-
-/*
-Sender history
-*/
-messageSchema.index({
-  senderId: 1,
-  createdAt: -1
-});
-
-/*
-Reply lookup
-*/
-messageSchema.index({
-  replyTo: 1
-});
-
-/*
-Delivery tracking
-*/
-messageSchema.index({
-  "delivery.userId": 1
-});
-
-/*
-Media lookup optimization
-*/
-messageSchema.index({
-  mediaAssets: 1
-});
-
-/*
-Message type filtering (media/text separation)
-*/
-messageSchema.index({
-  chatId: 1,
-  type: 1,
-  createdAt: -1
-});
-
-/*
-========================
-VALIDATION
-========================
-*/
+/* =========================
+   VALIDATION RULES
+========================= */
 messageSchema.pre("validate", function (next) {
-  const mediaTypes = [
-    MESSAGE_CATEGORIES.IMAGE,
-    MESSAGE_CATEGORIES.VIDEO,
-    MESSAGE_CATEGORIES.AUDIO,
-    MESSAGE_CATEGORIES.FILE
-  ];
+  const hasText = this.text && this.text.trim().length > 0;
+  const hasMedia = this.media && this.media.length > 0;
 
-  if (
-    (this.type === MESSAGE_CATEGORIES.TEXT ||
-      this.type === MESSAGE_CATEGORIES.SYSTEM) &&
-    (!this.content || this.content.trim().length === 0)
-  ) {
-    return next(new Error(`${this.type} messages must contain content`));
+  const mediaTypes = ["image", "video", "audio", "file"];
+
+  // TEXT / SYSTEM must have text or media
+  if (this.type === "text" || this.type === "system") {
+    if (!hasText && !hasMedia) {
+      return next(new Error("Message must contain text or media"));
+    }
   }
 
-  if (
-    mediaTypes.includes(this.type) &&
-    (!this.mediaAssets || this.mediaAssets.length === 0)
-  ) {
-    return next(new Error(`${this.type} messages must contain mediaAssets`));
+  // Media types must have media
+  if (mediaTypes.includes(this.type)) {
+    if (!hasMedia) {
+      return next(new Error(`${this.type} message must contain media`));
+    }
   }
 
   next();
-});
-
-/*
-========================
-VIRTUALS
-========================
-*/
-messageSchema.virtual("readCount").get(function () {
-  return this.delivery.filter(d => d.readAt).length;
-});
-
-messageSchema.virtual("deliveredCount").get(function () {
-  return this.delivery.filter(d => d.deliveredAt).length;
 });
 
 export const Message = model(MODELS.MESSAGE, messageSchema);

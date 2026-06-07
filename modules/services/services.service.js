@@ -3,23 +3,55 @@ import Service from "../../models/Service.model.js";
 import Category from "../../models/Category.model.js";
 import { isValidId } from "../../validationSchemas/mongodb.schemas.js";
 import { escapeRegex } from "../../utils/escapeRegex.utils.js";
+
 import {
   BadRequestError,
   NotFoundError,
   UnauthorizedError
 } from "../../errors/index.js";
 
-export const createService = async (data) => {
+/* =========================
+   LOCATION UTILS
+========================= */
+import {
+  buildLocation,
+  buildGeoNearQuery
+} from "../../utils/location.utils.js";
+import {
+  ServiceProvider
+} from "../../models/ServiceProvider.model.js";
 
+/* =========================================================
+   CREATE SERVICE
+========================================================= */
+export const createService = async (data) => {
   const category = await Category.findById(data.category);
+
   if (!category) {
     throw new NotFoundError("Category not found");
   }
 
+  if(!data.user.serviceProvider){
+    return new UnauthorizedError("Not a provider");
+  }
+
+  const provider = await ServiceProvider.findOne({user:data.user.id});
+
+  if(!provider){
+    return new UnauthorizedError("Not a provider");
+  }
+
+  const location = buildLocation(
+    provider.locationLn,
+    provider.locationLat,
+    provider.fullAddress
+  );
   const service = await Service.create({
     ...data,
+    provider:provider._id,
     category: category._id,
-    categoryPath: category.path
+    categoryPath: category.path,
+    location
   });
 
   return service;
@@ -35,7 +67,10 @@ export const getServices = async (query) => {
     category,
     status,
     provider,
-    sort = "-createdAt"
+    sort = "-createdAt",
+    locationLn,
+    locationLat,
+    radius
   } = query;
 
   page = Math.max(Number(page), 1);
@@ -43,12 +78,18 @@ export const getServices = async (query) => {
 
   const filter = {};
 
+  /* =========================
+     PRICE FILTER
+  ========================= */
   if (minPrice || maxPrice) {
     filter.price = {};
     if (minPrice) filter.price.$gte = Number(minPrice);
     if (maxPrice) filter.price.$lte = Number(maxPrice);
   }
 
+  /* =========================
+     CATEGORY FILTER
+  ========================= */
   if (category) {
     if (!isValidId(category)) {
       throw new BadRequestError("Invalid category id");
@@ -67,6 +108,9 @@ export const getServices = async (query) => {
     };
   }
 
+  /* =========================
+     STATUS / PROVIDER
+  ========================= */
   if (status) filter.status = status;
 
   if (provider) {
@@ -76,15 +120,29 @@ export const getServices = async (query) => {
     filter.provider = provider;
   }
 
+  /* =========================
+     GEO SEARCH (OPTIONAL)
+  ========================= */
+  const geoQuery =
+    locationLn !== undefined &&
+    locationLat !== undefined &&
+    radius !== undefined
+      ? buildGeoNearQuery(locationLn, locationLat, radius)
+      : null;
+
+  const finalQuery = geoQuery
+    ? { ...filter, ...geoQuery }
+    : filter;
+
   const [services, total] = await Promise.all([
-    Service.find(filter)
+    Service.find(finalQuery)
       .sort(sort)
       .skip((page - 1) * limit)
       .limit(limit)
       .populate("provider", "name")
       .populate("category", "name"),
 
-    Service.countDocuments(filter)
+    Service.countDocuments(finalQuery)
   ]);
 
   return {
@@ -98,12 +156,13 @@ export const getServices = async (query) => {
   };
 };
 
-export const getServicesByProvider = async (providerId) => {
-  if (!isValidId(providerId)) {
+
+export const getServicesByProvider = async (provider) => {
+  if (!isValidId(provider)) {
     throw new BadRequestError("Invalid provider id");
   }
 
-  return await Service.find({ provider: providerId })
+  return await Service.find({ provider })
     .sort("-createdAt")
     .populate("category", "name");
 };
@@ -163,7 +222,9 @@ export const updateService = async ({
   }
 
   if (service.provider.toString() !== userId) {
-    throw new UnauthorizedError("Not allowed to update this service");
+    throw new UnauthorizedError(
+      "Not allowed to update this service"
+    );
   }
 
   const forbiddenFields = [
@@ -178,16 +239,18 @@ export const updateService = async ({
 
   for (const field of forbiddenFields) {
     if (field in data) {
-      throw new BadRequestError(`Cannot update field: ${field}`);
+      throw new BadRequestError(
+        `Cannot update field: ${field}`
+      );
     }
   }
 
   Object.assign(service, data);
 
   await service.save();
-
   return service;
 };
+
 
 export const deleteService = async ({
   serviceId,
@@ -210,4 +273,42 @@ export const deleteService = async ({
   await service.deleteOne();
 
   return true;
+};
+
+
+/**
+ * Sync ServiceProvider location to all Services
+ *
+ * @param {Object} params
+ * @param {ObjectId} params.providerId
+ * @param {Object} params.location - GeoJSON { type, coordinates, fullAddress }
+ * @param {ClientSession} [params.session]
+ */
+export const syncProviderLocationToServices = async ({
+  providerId,
+  location,
+  session
+}) => {
+  if (!providerId || !location) return;
+
+  // ensure we never write invalid geo data
+  const hasCoords =
+    Array.isArray(location.coordinates) &&
+    location.coordinates.length === 2 &&
+    Number.isFinite(location.coordinates[0]) &&
+    Number.isFinite(location.coordinates[1]);
+
+  const update = {
+    location: {
+      type: "Point",
+      ...(hasCoords ? { coordinates: location.coordinates } : {}),
+      fullAddress: location.fullAddress || ""
+    }
+  };
+
+  await Service.updateMany(
+    { provider: providerId },
+    { $set: update },
+    { session }
+  );
 };

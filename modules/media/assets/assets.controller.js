@@ -1,4 +1,4 @@
-import { createAsset,getAllAssets,getAssetById,deleteAsset,bulkDeleteAssets,updateAsset } from "./assets.service.js";
+import { createAsset,getAllAssets,getAssetById, getAssetsByUserId ,deleteAsset,bulkDeleteAssets,updateAsset } from "./assets.service.js";
 
 // ------------------------
 // CREATE MediaAsset
@@ -35,6 +35,14 @@ export const getMediaAssetById = async (req, res) => {
   const { id:mediaAssetId } = req.validated?.params;
   const mediaAsset = await getAssetById(mediaAssetId);
   return res.status(200).json({ mediaAsset });
+};
+
+
+
+export const getMediaAssetsByUserId = async (req, res) => {
+  const user = req.validated?.params?.id;
+  const mediaAssets = await getAssetsByUserId(user);
+  return res.status(200).json({ mediaAssets });
 };
 
 // ------------------------

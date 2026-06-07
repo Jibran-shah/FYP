@@ -5,20 +5,10 @@ const { Schema, model, Types } = mongoose;
 
 /* =========================
    DIRECT CHAT MODEL
-   =========================
-   Purpose:
-   - One-to-one conversations
-   - Exactly 2 unique users
-   - Lightweight architecture
-   - Fast retrieval
-   - Real-time optimized
 ========================= */
 
 const DirectChatSchema = new Schema(
   {
-    /*
-    Exactly 2 participants
-    */
     participants: [
       {
         type: Types.ObjectId,
@@ -27,55 +17,46 @@ const DirectChatSchema = new Schema(
       }
     ],
 
-    /*
-    Cached last message preview
-    */
     lastMessage: {
       messageId: {
         type: Types.ObjectId,
         ref: MODELS.MESSAGE
       },
-
       senderId: {
         type: Types.ObjectId,
         ref: MODELS.USER
       },
-
       content: {
         type: String,
         trim: true,
         default: ""
       },
-
       updatedAt: Date
     },
 
     /*
-    Per-user soft deletion
-    Allows:
-    - "Delete for me"
-    - Hide chat from user
+    FIXED: ensure consistent array of ObjectIds
     */
     deletedFor: [
       {
         type: Types.ObjectId,
-        ref: "User"
+        ref: MODELS.USER,
+        default: null
       }
     ],
 
     /*
-    User blocking system
-    If blocked, messaging disabled
+    FIXED: also support multiple blockers (future-proof)
+    but keeping backward-compatible structure
     */
-    blockedBy: {
-      type: Types.ObjectId,
-      ref: MODELS.USER,
-      default: null
-    },
+    blockedBy: [
+      {
+        type: Types.ObjectId,
+        ref: MODELS.USER,
+        default: null
+      }
+    ],
 
-    /*
-    Lifecycle state
-    */
     isArchived: {
       type: Boolean,
       default: false,
@@ -98,72 +79,42 @@ const DirectChatSchema = new Schema(
    VALIDATION
 ========================= */
 
-DirectChatSchema.pre("validate", function (next) {
-  /*
-  Must contain exactly 2 users
-  */
+DirectChatSchema.pre("validate", async function () {
+  if (!Array.isArray(this.participants)) {
+    throw new Error("participants must be an array");
+  }
+
   if (this.participants.length !== 2) {
-    return next(
-      new Error(
-        "Direct chat must contain exactly 2 participants"
-      )
-    );
+    throw new Error("Direct chat must contain exactly 2 participants");
+  }
+
+  const participantIds = this.participants.map(id => id.toString());
+
+  if (new Set(participantIds).size !== participantIds.length) {
+    throw new Error("Direct chat participants must be unique");
   }
 
   /*
-  Prevent duplicate participants
+  deletedFor must be subset of participants
   */
-  const participantIds = this.participants.map(id =>
-    id.toString()
-  );
-
-  if (
-    new Set(participantIds).size !==
-    participantIds.length
-  ) {
-    return next(
-      new Error(
-        "Direct chat participants must be unique"
-      )
-    );
-  }
-
-  /*
-  Validate deletedFor users belong to participants
-  */
-  if (this.deletedFor?.length) {
-    for (const deletedUser of this.deletedFor) {
-      if (
-        !participantIds.includes(
-          deletedUser.toString()
-        )
-      ) {
-        return next(
-          new Error(
-            "deletedFor contains invalid participant"
-          )
-        );
+  if (Array.isArray(this.deletedFor) && this.deletedFor.length) {
+    for (const user of this.deletedFor) {
+      if (!participantIds.includes(user.toString())) {
+        throw new Error("deletedFor contains invalid participant");
       }
     }
   }
 
   /*
-  Validate blockedBy belongs to participants
+  blockedBy must be subset of participants (array version)
   */
-  if (
-    this.blockedBy &&
-    !participantIds.includes(
-      this.blockedBy.toString()
-    )
-  ) {
-    return next(
-      new Error(
-        "blockedBy must be one of the participants"
-      )
-    );
+  if (Array.isArray(this.blockedBy) && this.blockedBy.length) {
+    for (const user of this.blockedBy) {
+      if (!participantIds.includes(user.toString())) {
+        throw new Error("blockedBy contains invalid participant");
+      }
+    }
   }
-
-  next();
 });
 
 /* =========================
@@ -171,7 +122,7 @@ DirectChatSchema.pre("validate", function (next) {
 ========================= */
 
 /*
-Fast participant chat lookup
+Chat lookup
 */
 DirectChatSchema.index({
   participants: 1,
@@ -180,23 +131,19 @@ DirectChatSchema.index({
 });
 
 /*
-Block lookup
-*/
-DirectChatSchema.index({
-  blockedBy: 1
-});
-
-/*
-Soft delete lookup
+IMPORTANT FIX:
+Array fields should use multikey index explicitly
 */
 DirectChatSchema.index({
   deletedFor: 1
 });
 
+DirectChatSchema.index({
+  blockedBy: 1
+});
+
 /*
 Prevent duplicate direct chats
-Application layer should also sort participants
-before creation for consistency
 */
 DirectChatSchema.index({
   participants: 1
@@ -206,19 +153,15 @@ DirectChatSchema.index({
    STATIC METHOD
 ========================= */
 
-/*
-Find existing direct chat between 2 users
-*/
-DirectChatSchema.statics.findBetweenUsers =
-  function (userA, userB) {
-    return this.findOne({
-      participants: {
-        $all: [userA, userB],
-        $size: 2
-      },
-      isDeleted: false
-    });
-  };
+DirectChatSchema.statics.findBetweenUsers = function (userA, userB) {
+  return this.findOne({
+    participants: {
+      $all: [userA, userB],
+      $size: 2
+    },
+    isDeleted: false
+  });
+};
 
 /* =========================
    EXPORT

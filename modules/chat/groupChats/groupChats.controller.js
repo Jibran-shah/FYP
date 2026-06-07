@@ -8,7 +8,7 @@ import {
   updateGroupService,
   deleteGroupService,
   changeRoleService
-} from "./groupChats.service";
+} from "./groupChats.service.js";
 
 /*
 =====================================================

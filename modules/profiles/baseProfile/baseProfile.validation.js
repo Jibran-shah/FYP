@@ -1,5 +1,5 @@
-import { objectId } from "../../../validationSchemas/mongodb.schemas.js";
 import Joi from "joi";
+import { mongoIdSchema } from "../../../validationSchemas/mongodb.schemas.js";
 
 export const createProfileSchema = Joi.object({
   fullName: Joi.string().trim().min(1).max(80).required(),
@@ -22,7 +22,7 @@ export const createProfileSchema = Joi.object({
 export const updateProfileSchema = Joi.object({
   fullName: Joi.string().trim().min(1).max(80).optional(),
 
-  fileId: Joi.string().custom(objectId).optional(),
+  fileId: mongoIdSchema.optional(),
 
   phone: Joi.string()
     .trim()
@@ -62,5 +62,5 @@ export const getProfilesQuerySchema = Joi.object({
 
 
 export const profileIdSchema = Joi.object({
-  id: Joi.string().custom(objectId).required()
+  id: mongoIdSchema.required().label("id")
 });

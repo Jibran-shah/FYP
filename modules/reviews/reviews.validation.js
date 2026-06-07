@@ -4,7 +4,7 @@ import mongoose from "mongoose";
 import {
   REVIEW_ENTITYS_ARRAY
 } from "../../constants/review.constants.js";
-import { mongoIdSchema } from "../../validationSchemas/general.schemas.js";
+import { mongoIdSchema } from "../../validationSchemas/mongodb.schemas.js";
 
 
 

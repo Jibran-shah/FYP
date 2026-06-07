@@ -5,7 +5,7 @@ import Review from "../../models/Review.model.js";
 import Product from "../../models/product.model.js";
 import Service from "../../models/service.model.js";
 import ProductSeller from "../../models/ProductSeller.model.js";
-import ServiceProvider from "../../models/ServiceProvider.model.js";
+import {ServiceProvider} from "../../models/ServiceProvider.model.js";
 
 import {
   BadRequestError,

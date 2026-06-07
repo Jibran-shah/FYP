@@ -1,6 +1,5 @@
 import Joi from "joi"
-import { objectId } from "../../../validationSchemas/mongodb.schemas.js";
-import { mongoIdSchema, requiredMsg } from "../../../validationSchemas/general.schemas.js";
+import { mongoIdSchema } from "../../../validationSchemas/mongodb.schemas.js";
 
 /* =========================================================
    🔹 PARAMS: /:id (GET, PATCH, DELETE)
@@ -8,7 +7,7 @@ import { mongoIdSchema, requiredMsg } from "../../../validationSchemas/general.s
 export const mediaFileIdSchema = Joi.object({
   id: mongoIdSchema
    .required()
-   .messages(requiredMsg("id"))
+   .label("id")
 });
 
 /* =========================================================
@@ -33,7 +32,7 @@ export const createMediaFileSchema = Joi.object({});
 ========================================================= */
 export const bulkDeleteSchema = Joi.object({
   ids: Joi.array()
-    .items(Joi.string().custom(objectId))
+    .items(mongoIdSchema.required())
     .min(1)
     .max(100)
     .required()

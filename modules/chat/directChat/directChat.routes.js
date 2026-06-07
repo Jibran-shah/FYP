@@ -5,7 +5,8 @@ import {
   getDirectChat,
   getUserDirectChats,
   deleteDirectChatForUser,
-  blockDirectChatUser
+  blockDirectChatUser,
+  unBlockDirectChatUser
 } from "./directChat.controller.js";
 
 import {
@@ -16,7 +17,7 @@ import {
   bodyBlockerIdSchema
 } from "./directChat.validation.js";
 
-import validate from "../../../middlewares/validate.middleware.js";
+import {validate} from "../../../middlewares/validate.middleware.js";
 import { protect } from "../../../middlewares/protect.middleware.js";
 import { asyncHandler } from "../../../utils/asyncHandler.js";
 
@@ -33,6 +34,15 @@ router.post(
     asyncHandler(createDirectChat)
 );
 
+
+/* =========================
+   GET ALL DIRECT CHATS OF USER
+========================= */
+router.get(
+  "/user",
+  asyncHandler(getUserDirectChats)
+);
+
 /* =========================
    GET SINGLE DIRECT CHAT
 ========================= */
@@ -42,14 +52,7 @@ router.get(
   asyncHandler(getDirectChat)
 );
 
-/* =========================
-   GET ALL DIRECT CHATS OF USER
-========================= */
-router.get(
-  "/user/:userId",
-  validate(paramsUserIdSchema, "params"),
-  asyncHandler(getUserDirectChats)
-);
+
 
 /* =========================
    DELETE CHAT FOR USER (SOFT DELETE)
@@ -57,9 +60,9 @@ router.get(
 router.patch(
   "/:chatId/delete",
   validate(paramsChatIdSchema, "params"),
-  validate(bodyUserIdSchema, "body"),
   asyncHandler(deleteDirectChatForUser)
 );
+
 
 /* =========================
    BLOCK USER IN DIRECT CHAT
@@ -67,8 +70,14 @@ router.patch(
 router.patch(
   "/:chatId/block",
   validate(paramsChatIdSchema, "params"),
-  validate(bodyBlockerIdSchema, "body"),
   asyncHandler(blockDirectChatUser)
+);
+
+
+router.patch(
+  "/:chatId/unblock",
+  validate(paramsChatIdSchema, "params"),
+  asyncHandler(unBlockDirectChatUser)
 );
 
 export default router;

@@ -14,7 +14,10 @@ export const MODELS = Object.freeze({
     GROUP_CHAT:"GroupChat",
     DIRECT_CHAT:"DirectChat",
     ORDER:"Order",
-    PAYMENT:"Payment",
+    PAYMENT:"PaymentTransaction",
     WALLET:"Wallet",
     WALLET_TRANSACTION:"WalletTransaction",
+    BOOKING:"Booking",
+    PAYMENT_TRANSACTION:"PaymentTransaction",
+    WITHDRAW_REQUEST:"WithdrawRequest"
 });

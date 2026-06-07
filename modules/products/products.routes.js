@@ -17,13 +17,15 @@ import {
 const router = express.Router();
 
 /* =========================================================
-   CREATE PRODUCT (WITH IMAGES)
+   CREATE PRODUCT
 ========================================================= */
 router.post(
   "/",
   protect({ requireProductSellerProfile: true }),
 
-  // 1. FILE UPLOAD
+  /* =========================
+     FILE UPLOAD
+  ========================= */
   createUpload({
     fields: [
       {
@@ -34,11 +36,14 @@ router.post(
     ]
   }),
 
-  // 2. MEDIA CONTEXT
+  /* =========================
+     MEDIA CONTEXT (NEW SYSTEM)
+  ========================= */
   mediaContext({
+    ownerFrom: "user", // explicitly enforced
     fields: {
       images: {
-        namespace: "PRODUCT_IMAGES",
+        namespace: "PRODUCT",
         usageType: "PRODUCT_IMAGE"
       }
     }
@@ -84,12 +89,15 @@ router.get(
 );
 
 /* =========================================================
-   UPDATE PRODUCT (WITH IMAGES)
+   UPDATE PRODUCT
 ========================================================= */
 router.patch(
   "/:id",
   protect({ requireProductSellerProfile: true }),
 
+  /* =========================
+     FILE UPLOAD
+  ========================= */
   createUpload({
     fields: [
       {
@@ -100,10 +108,14 @@ router.patch(
     ]
   }),
 
+  /* =========================
+     MEDIA CONTEXT (NEW SYSTEM)
+  ========================= */
   mediaContext({
+    ownerFrom: "user",
     fields: {
       images: {
-        namespace: "PRODUCT_IMAGES",
+        namespace: "PRODUCT",
         usageType: "PRODUCT_IMAGE"
       }
     }

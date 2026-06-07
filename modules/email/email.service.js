@@ -43,11 +43,7 @@ class EmailService {
         );
 
     const link = generateVerificationLink(userId,token);
-    console.log({
-      type: EMAIL_TYPES.VERIFY_EMAIL,
-      to,
-      data: { name, link }
-    });
+    
     return this.send({
       type: EMAIL_TYPES.VERIFY_EMAIL,
       to,

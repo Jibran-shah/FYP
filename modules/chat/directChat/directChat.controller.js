@@ -2,7 +2,7 @@ import * as directChatService from "./directChat.service.js";
 
 export const createDirectChat = async (req, res) => {
   const userId1 = req.user.id;
-  const { userId2 } = req.body;
+  const userId2 = req.validated?.body?.userId;
 
   const chat = await directChatService.createDirectChat({
     userId1,
@@ -20,7 +20,7 @@ export const getDirectChat = async (req, res) => {
 
   const { chatId } = req.params;
 
-  const chat = await directChatService.getDirectChat(chatId);
+  const chat = await directChatService.getDirectChat(chatId,req.user.id);
 
   return res.status(200).json({
     success: true,
@@ -62,6 +62,22 @@ export const blockDirectChatUser = async (req, res) => {
   const result = await directChatService.blockUserInDirectChat({
     chatId,
     blockerId
+  });
+
+  return res.status(200).json({
+    success: true,
+    data: result
+  });
+}
+
+
+export const unBlockDirectChatUser = async (req, res) => {
+  const { chatId } = req.params;
+  const unBlockerId = req.user.id;
+
+  const result = await directChatService.unBlockDirectChatUser({
+    chatId,
+    unBlockerId
   });
 
   return res.status(200).json({

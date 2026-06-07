@@ -1,12 +1,17 @@
 import mongoose from "mongoose";
+import {
+  SERVICE_STATUSES,
+  SERVICE_STATUS_ARRAY
+} from "../constants/service.constants.js";
 
-import { SERVICE_STATUSES,SERVICE_STATUS_ARRAY } from "../constants/service.constants.js";
+import {
+  isValidCoordinates
+} from "../utils/location.utils.js";
 
 const { Schema } = mongoose;
 
 const serviceSchema = new Schema(
   {
-
     provider: {
       type: Schema.Types.ObjectId,
       ref: "ServiceProvider",
@@ -81,48 +86,75 @@ const serviceSchema = new Schema(
       max: 5,
       index: true
     },
+
+    /* =========================
+       LOCATION (SIMPLIFIED)
+    ========================= */
+
     location: {
-      type: {
-        type: String,
-        enum: ["Point"],
-        default: "Point"
-      },
       coordinates: {
-        type: [Number], // [longitude, latitude]
+        type: [Number], // [lng, lat]
+
         validate: {
-          validator: function (value) {
+          validator(value) {
+            if (!value || value.length === 0) {
+              return true;
+            }
+
             return (
               Array.isArray(value) &&
               value.length === 2 &&
-              value[0] >= -180 &&
-              value[0] <= 180 &&
-              value[1] >= -90 &&
-              value[1] <= 90
+              isValidCoordinates(
+                value[0],
+                value[1]
+              )
             );
           },
+
           message:
             "Coordinates must be [longitude, latitude] with valid ranges."
         }
       },
 
-      address: {
-        country: { type: String, trim: true },
-        state: { type: String, trim: true },
-        city: { type: String, trim: true },
-        area: { type: String, trim: true },
-        fullAddress: { type: String, trim: true }
+      fullAddress: {
+        type: String,
+        trim: true,
+        default: ""
       }
-      
-    },
+    }
   },
   {
     timestamps: true
   }
 );
 
-serviceSchema.index({ provider: 1, status: 1 });
-serviceSchema.index({ category: 1, price: 1 });
-serviceSchema.index({ categoryPath: 1 });
-serviceSchema.index({ categoryPath: 1, price: 1 });
+/* =========================
+   INDEXES
+========================= */
 
-export default mongoose.models.Service || mongoose.model("Service", serviceSchema);
+serviceSchema.index({
+  provider: 1,
+  status: 1
+});
+
+serviceSchema.index({
+  category: 1,
+  price: 1
+});
+
+serviceSchema.index({
+  categoryPath: 1
+});
+
+serviceSchema.index({
+  categoryPath: 1,
+  price: 1
+});
+
+/* Geo Search */
+serviceSchema.index({
+  "location.coordinates": "2dsphere"
+});
+
+export default mongoose.models.Service ||
+  mongoose.model("Service", serviceSchema);

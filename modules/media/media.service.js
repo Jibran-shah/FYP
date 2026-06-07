@@ -78,8 +78,6 @@ export const mediaService = {
     session
   }) {
 
-    console.log(context)
-
     const assetIds = [];
 
     for (const file of files) {

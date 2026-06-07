@@ -1,6 +1,5 @@
 import Joi from "joi";
-import { objectId } from "../../../validationSchemas/mongodb.schemas.js";
-import { mongoIdSchema, requiredMsg } from "../../../validationSchemas/general.schemas.js";
+import { mongoIdSchema } from "../../../validationSchemas/mongodb.schemas.js";
 
 export const createProductSellerSchema = Joi.object({
   shopName: Joi.string()
@@ -45,7 +44,7 @@ export const updateProductSellerSchema = Joi.object({
 
 
 export const productSellerIdParamSchema = Joi.object({
-  id: mongoIdSchema.required().messages(requiredMsg("id"))
+  id: mongoIdSchema.required().label("id")
 });
 
 export const bulkDeleteProductSellerSchema = Joi.object({
@@ -67,5 +66,5 @@ export const getAllProductSellerQuerySchema = Joi.object({
   isApproved: Joi.string().trim().optional(),
   page: Joi.number().integer().min(1).optional(),
   limit: Joi.number().integer().min(1).max(100).optional(),
-  user: Joi.string().custom(objectId).optional()
+  user: mongoIdSchema.optional()
 });

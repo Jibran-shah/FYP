@@ -101,9 +101,6 @@ export const renderTemplate = (type, data = {}) => {
     throw new Error(`Unknown email template type: ${type}`);
   }
 
-  console.log("inside render template before calling templateFn")
-  console.log(data)
-
   const result = templateFn(data);
 
   // ✅ strict validation

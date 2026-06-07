@@ -12,42 +12,61 @@ import {
 import { protect } from "../../middlewares/protect.middleware.js";
 import { createReviewSchema, entityReviewParamsSchema, reviewIdParamSchema, reviewQuerySchema, updateReviewSchema } from "./reviews.validation.js";
 import {validate} from "../../middlewares/validate.middleware.js"
+import { asyncHandler } from "../../utils/asyncHandler.js";
 
 const router = express.Router();
 
-/* =========================================================
-   USER ROUTES
-========================================================= */
-
 // Create a new review
-router.post("/", protect({ requireBaseProfile: true }),validate(createReviewSchema), createReview);
+router.post(
+   "/", 
+   protect({ requireBaseProfile: true }),
+   validate(createReviewSchema),
+   asyncHandler(createReview)
+);
 
 // Get logged-in user's reviews
-router.get("/me", protect({ requireBaseProfile: true }),  getMyReviews);
-
-
-/* =========================================================
-   PUBLIC ROUTES
-========================================================= */
+router.get(
+   "/me", 
+   protect({ requireBaseProfile: true }), 
+   asyncHandler(getMyReviews)
+);
 
 // Get all reviews (optional admin/filter support later)
-router.get("/",validate(reviewQuerySchema), getAllReviews);
+router.get(
+   "/",
+   validate(reviewQuerySchema), 
+   asyncHandler(getAllReviews)
+);
 
 // Get reviews for specific entity
-router.get("/entity/:entityType/:entityId", validate(entityReviewParamsSchema,"params"), validate(reviewQuerySchema), getEntityReviews);
+router.get(
+   "/entity/:entityType/:entityId", 
+   validate(entityReviewParamsSchema,"params"), 
+   validate(reviewQuerySchema), 
+   asyncHandler(getEntityReviews)
+);
 
 // Get single review by review ID
-router.get("/:id",validate(reviewIdParamSchema,"params"), getReviewById);
-
-
-/* =========================================================
-   PROTECTED ROUTES
-========================================================= */
+router.get("/:id",
+   validate(reviewIdParamSchema,"params"), 
+   asyncHandler(getReviewById)
+);
 
 // Update own review
-router.patch("/:id", protect({ requireBaseProfile: true }), validate(reviewIdParamSchema,"params"), validate(updateReviewSchema), updateReview);
+router.patch(
+   "/:id", 
+   protect({ requireBaseProfile: true }), 
+   validate(reviewIdParamSchema,"params"), 
+   validate(updateReviewSchema), 
+   asyncHandler(updateReview)
+);
 
 // Delete own review
-router.delete("/:id", protect({ requireBaseProfile: true }),validate(reviewIdParamSchema,"params"), deleteReview);
+router.delete(
+   "/:id", 
+   protect({ requireBaseProfile: true }),
+   validate(reviewIdParamSchema,"params"), 
+   asyncHandler(deleteReview)
+);
 
 export default router;

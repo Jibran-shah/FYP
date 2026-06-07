@@ -15,8 +15,6 @@ export const registerConnection = async (io, socket) => {
   */
   const { socketCount } = await presenceStore.addSocket(userId, socket.id);
 
-  console.log("socketCount:", socketCount);
-
   if (socketCount === 1) {
     presenceSubscriptions.emitOnline(io, userId);
   }

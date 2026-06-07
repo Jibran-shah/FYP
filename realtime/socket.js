@@ -11,8 +11,6 @@ export async function initSocket(server) {
 
   io.use(socketAuth);
 
-  console.log("\n\n\n\n\nserver started..............\n\n\n\n");
-
   await setupSocketRedisAdapter(io);
   //kafka producer setup
   await connectProducer();

@@ -4,17 +4,15 @@ import * as productService from "./products.service.js";
    CREATE PRODUCT
 ====================== */
 export const createProduct = async (req, res) => {
-  const product = await productService.createProduct({
-    ...req.validated?.body,
-
-    seller: req.user.id,
-
-    /* ======================
-       MEDIA INTEGRATION
-    ====================== */
-    files: req.media?.multi?.files || [],
-    fileIds: req.media?.multi?.fileIds || []
-  });
+  const product = await productService.createProduct(
+    {
+      ...req.validated?.body,
+      seller: req.user.id,
+      files: req.media?.images,
+      fileIds: req.validated?.body?.fileIds
+    },
+    req.mediaContext?.images
+  );
 
   res.status(201).json({
     success: true,
@@ -38,8 +36,7 @@ export const getProducts = async (req, res) => {
    GET MY PRODUCTS
 ====================== */
 export const getProductsBySeller = async (req, res) => {
-  const products = await productService.getProductsBySeller(req.user.id);
-
+  const products = await productService.getProductsBySeller(req.validated?.params?.seller);
   res.json({
     success: true,
     data: products
@@ -78,20 +75,18 @@ export const getProductById = async (req, res) => {
    UPDATE PRODUCT
 ====================== */
 export const updateProduct = async (req, res) => {
-  const product = await productService.updateProduct({
-    productId: req.validated?.params.id,
-    userId: req.user.id,
-
-    data: {
-      ...req.validated?.body,
-
-      /* ======================
-         MEDIA UPDATE SUPPORT
-      ====================== */
-      files: req.media?.multi?.files || [],
-      fileIds: req.media?.multi?.fileIds || []
-    }
-  });
+  const product = await productService.updateProduct(
+    {
+      productId: req.validated?.params.id,
+      userId: req.user.id,
+      data: {
+        ...req.validated?.body,
+        files: req.media?.images || [],
+        fileIds: req.body?.fileIds || []
+      }
+    },
+    req.mediaContext?.images
+  );
 
   res.json({
     success: true,

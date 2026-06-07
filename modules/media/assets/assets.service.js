@@ -103,6 +103,16 @@ export const getAssetById = async (mediaAssetId) => {
   return asset;
 }
 
+
+export const getAssetsByUserId = async (user) => {
+
+  const assets = await MediaAsset.find({uploadedBy:user})
+    .sort({ createdAt: -1 })
+    .populate("file", "url mimeType size");
+
+  return assets;
+}
+
 export const updateAsset = async (mediaAssetId, updates, updatedBy, session = null) => {
 
   const execute = async (session) => {
