@@ -8,16 +8,15 @@ import {
   getBookingsQuerySchema,
   updateBookingStatusSchema
 } from "./bookings.validation.js";
+import { protect } from "../../middlewares/protect.middleware.js";
+import { validate } from "../../middlewares/validate.middleware.js";
+import { asyncHandler } from "../../utils/asyncHandler.js";
 
-import { protect } from "../../../middlewares/protect.middleware.js";
-import { validate } from "../../../middlewares/validate.middleware.js";
-import { asyncHandler } from "../../../utils/asyncHandler.js";
 
 const router = Router();
 
 /* =========================
    CREATE BOOKING
-   (creates booking + payment transaction internally)
 ========================= */
 router.post(
   "/",

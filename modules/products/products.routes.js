@@ -13,19 +13,14 @@ import {
   productQuerySchema,
   idParamSchema
 } from "./products.validation.js";
+import { MEDIA_USAGE_TYPES, NAMESPACES } from "../../constants/media.constants.js";
 
 const router = express.Router();
 
-/* =========================================================
-   CREATE PRODUCT
-========================================================= */
 router.post(
   "/",
   protect({ requireProductSellerProfile: true }),
 
-  /* =========================
-     FILE UPLOAD
-  ========================= */
   createUpload({
     fields: [
       {
@@ -36,15 +31,11 @@ router.post(
     ]
   }),
 
-  /* =========================
-     MEDIA CONTEXT (NEW SYSTEM)
-  ========================= */
   mediaContext({
-    ownerFrom: "user", // explicitly enforced
     fields: {
       images: {
-        namespace: "PRODUCT",
-        usageType: "PRODUCT_IMAGE"
+        namespace: NAMESPACES.PRODUCT_IMAGES,
+        usageType: MEDIA_USAGE_TYPES.PRODUCT_IMAGE
       }
     }
   }),

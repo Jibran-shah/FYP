@@ -5,10 +5,15 @@ import { parseExpiresToSeconds } from "../../../utils/token.utils.js";
 import { clearCookie, setCookie } from "../../../utils/cookie.js";
 import { AUTH_CONFIG } from "../../../config/auth.config.js";
 
+let createProfileCounter = 0;
+
 // CREATE
 export const createProfile = asyncHandler(async (req, res) => {
 
-  const {profile,accessToken,refreshToken} = await profileService.createProfile(
+  createProfileCounter++
+  console.log("profile Create Request :", createProfileCounter)
+
+  const {profile,accessToken,refreshToken,user} = await profileService.createProfile(
     req.user,
     req.validated?.body,
     req.media,
@@ -21,14 +26,17 @@ export const createProfile = asyncHandler(async (req, res) => {
   const accessTtlSeconds = parseExpiresToSeconds(AUTH_CONFIG.ACCESS_TOKEN.EXPIRY);
   setCookie(res, AUTH_CONFIG.ACCESS_TOKEN.COOKIE_NAME, accessToken, accessTtlSeconds);
 
-  res.status(201).json({ success: true, data: profile });
+  res.status(201).json({ success: true, data: {profile,user} });
 });
 
 // GET
 export const getProfileById = asyncHandler(async (req, res) => {
   const {id} = req.validated?.params;
+  console.log(id)
   const profile = await profileService.getProfileById(id);
   if (!profile) throw new NotFoundError("Profile not found");
+  console.log("__________________________________")
+  console.log(profile)
   res.json({ success: true, data: profile });
 });
 
@@ -64,3 +72,15 @@ export const deleteProfile = asyncHandler(async (req, res) => {
 
   res.json({ success: true, message: "Profile deleted successfully" });
 });
+
+
+export const getFullProfile = async (req, res) => {
+  const { id } = req.validated?.params;
+
+  const result = await profileService.getFullProfileService(id);
+
+  res.status(200).json({
+    success: true,
+    data: result,
+  });
+};

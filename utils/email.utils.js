@@ -15,6 +15,6 @@ export const emailVerificationStore = new CooldownSecretStore(
 
 export const generateVerificationLink =
   (userId, token) => {
-    return `${BASE_ROOT}/auth/verify-email?userId=${userId}&token=${token}`;
+    return `/verify-email?userId=${userId}&token=${token}`;
   };
 

@@ -1,13 +1,9 @@
 import mongoose from "mongoose";
-import { Booking, BOOKING_STATUS } from "./booking.model.js";
-import { PaymentTransaction } from "../payments/paymentTransaction.model.js";
-
-import {
-  NotFoundError,
-  BadRequestError,
-  ForbiddenError
-} from "../../../errors/Http.error.js";
+import { Booking } from "../../models/Booking.model.js";
+import { BadRequestError, ForbiddenError, NotFoundError } from "../../errors/Http.error.js";
 import { MODELS } from "../../constants/models.constants.js";
+import { PAYABLE_TYPE, PAYMENT_STATUS } from "../../constants/payment.constants.js";
+import { BOOKING_STATUS } from "../../constants/booking.constants.js";
 
 /* =========================
    CREATE BOOKING
@@ -26,6 +22,7 @@ export const createBooking = async ({
   const session = await mongoose.startSession();
 
   try {
+
     session.startTransaction();
 
     const bookingTime = new Date(scheduledAt);
@@ -69,10 +66,10 @@ export const createBooking = async ({
       [
         {
           buyer: buyerId,
-          payableType: "booking",
+          payableType: PAYABLE_TYPE.BOOKING,
           payableId: booking._id,
           amount: price,
-          status: "pending"
+          status: PAYMENT_STATUS.PENDING
         }
       ],
       { session }
@@ -166,8 +163,8 @@ export const updateBookingStatus = async ({
   }
 
   const validTransitions = {
-    pending: ["confirmed", "cancelled"],
-    confirmed: ["completed", "cancelled"]
+    pending: [BOOKING_STATUS.CONFIRMED, BOOKING_STATUS.CANCELLED],
+    confirmed: [BOOKING_STATUS.COMPLETED, BOOKING_STATUS.CANCELLED]
   };
 
   if (!validTransitions[booking.status]?.includes(status)) {
@@ -176,7 +173,7 @@ export const updateBookingStatus = async ({
     );
   }
 
-  if(status === "completed"){
+  if(status === BOOKING_STATUS.COMPLETED){
     await releaseWalletEarning({
       userId: booking.serviceProvider,
       amount: booking.price,

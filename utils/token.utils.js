@@ -68,8 +68,9 @@ export const resetTokenSystem = new TokenSystem({
 export const generateAccessToken = ({
   user
 }) => {
+  console.log(user);
   return accessTokenSystem.generate({
-        userId:user._id,
+        userId:user?._id ||user?.id,
         role:user.role,
         baseProfile:user.baseProfile,
         productSeller:user.productSeller,
@@ -82,8 +83,9 @@ export const generateRefreshToken = ({
   user,
   sessionId,
 }) => {
+  console.log(user)
   return refreshTokenSystem.generate({
-        userId:user._id,
+        userId:user?._id || user?.id,
         sessionId,
         role:user.role,
         baseProfile:user.baseProfile,

@@ -156,5 +156,7 @@ serviceSchema.index({
   "location.coordinates": "2dsphere"
 });
 
-export default mongoose.models.Service ||
-  mongoose.model("Service", serviceSchema);
+const Service = mongoose.models.Service ||
+  mongoose.model("Service", serviceSchema); 
+
+export default Service

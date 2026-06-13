@@ -1,6 +1,6 @@
 import { Message } from "../../../models/Message.model.js";
 
-export async function messageConsumer(events) {
+export async function messageSendConsumer(events) {
   try {
     const ops = [];
 

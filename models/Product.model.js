@@ -153,5 +153,7 @@ productSchema.index({ categoryPath: 1, price: 1 });
 /* IMPORTANT: correct geospatial index */
 productSchema.index({ "location.coordinates": "2dsphere" });
 
-export default mongoose.models.Product ||
+const Product =  mongoose.models.Product ||
   mongoose.model("Product", productSchema);
+
+export default Product;

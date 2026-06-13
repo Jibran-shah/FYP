@@ -1,48 +1,69 @@
-import { BadRequestError, ValidationError } from "../errors/index.js";
+import { BadRequestError } from "../errors/index.js";
 
-/**
- * Joi validation middleware (body/query/params)
- */
 export const validate = (schema, property = "body") => {
   return (req, res, next) => {
-    const { error, value } = schema.validate(req[property], {
+    console.log("\n================ VALIDATION DEBUG ================");
+    console.log("📥 Incoming property:", property);
+    console.log("📦 Raw req.body:", req.body);
+    console.log("📦 Raw req.query:", req.query);
+    console.log("📦 Raw req.params:", req.params);
+
+    console.log(schema)
+
+    const payload = req[property];
+
+    // 🚨 HARD BLOCK undefined / null
+    if (payload === undefined || payload === null) {
+      console.log("❌ VALIDATION BLOCKED: payload is missing");
+
+      return next(
+        new BadRequestError(
+          `${property} is required but was not provided`
+        )
+      );
+    }
+
+    // Optional extra safety (prevents weird cases like string payloads)
+    if (property === "body" && typeof payload !== "object") {
+      console.log("❌ VALIDATION BLOCKED: invalid body type", typeof payload);
+
+      return next(
+        new BadRequestError("Request body must be a valid JSON object")
+      );
+    }
+
+    console.log("📨 Payload sent to Joi:", payload);
+
+    const { error, value } = schema.validate(payload, {
       abortEarly: false,
-      stripUnknown: true
+      stripUnknown: true,
     });
 
     if (error) {
       const errors = error.details.map((d) => ({
         field: d.path.join("."),
-        message: d.message
+        message: d.message,
+        type: d.type,
+        received: d.context?.value,
       }));
 
-      return next(new ValidationError("Validation failed", errors));
+      console.log("❌ VALIDATION FAILED:");
+      errors.forEach((e) => {
+        console.log(`   → Field: ${e.field}`);
+        console.log(`     Message: ${e.message}`);
+        console.log(`     Received:`, e.received);
+      });
+
+      return next(new BadRequestError("Validation failed", errors));
     }
 
-    /**
-     * Store validated data separately (safe pattern)
-     */
+    console.log("✅ VALIDATION PASSED");
+    console.log("✔️ Clean value:", value);
+    console.log("================================================\n");
+
     req.validated = req.validated || {};
     req.validated[property] = value;
 
     next();
   };
-};
-
-/**
- * Validate file OR fileId (mutually exclusive rule)
- */
-export const validateFileOrFileId = (req, res, next) => {
-  const hasFile = !!req.file;
-  const hasFileId = !!req.body.fileId;
-
-  if (hasFile && hasFileId) {
-    return next(new BadRequestError("Provide either file or fileId, not both"));
-  }
-
-  if (!hasFile && !hasFileId) {
-    return next(new BadRequestError("Either file or fileId is required"));
-  }
-  
-  next();
 };

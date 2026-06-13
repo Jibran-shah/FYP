@@ -19,47 +19,64 @@ class UserPresenceStore {
     return buildKey(this.prefix, userId, "sockets");
   }
 
+  // -----------------------------
+  // ADD SOCKET
+  // -----------------------------
   async addSocket(userId, socketId) {
     const key = this.socketKey(userId);
 
-    await redis.sadd(key, socketId);
+    const socketCount = await redis.sadd(key, socketId);
 
-    const socketCount = await redis.scard(key);
+    const count = await redis.scard(key);
 
-    if (socketCount === 1) {
+    // first socket → online
+    if (count === 1) {
       await this.setStatus(userId, "online");
     }
 
     await this.setPresence(userId, {
-      socketCount
+      socketCount: count
     });
 
-    return { socketCount };
+    return { socketCount: count };
   }
 
+  // -----------------------------
+  // REMOVE SOCKET
+  // -----------------------------
   async removeSocket(userId, socketId) {
     const key = this.socketKey(userId);
 
     await redis.srem(key, socketId);
 
-    const socketCount = await redis.scard(key);
+    const count = await redis.scard(key);
 
-    if (socketCount === 0) {
+    if (count === 0) {
       await this.setStatus(userId, "offline");
 
       await this.setPresence(userId, {
         socketCount: 0,
         lastSeen: Date.now()
       });
+    } else {
+      await this.setPresence(userId, {
+        socketCount: count
+      });
     }
 
-    return { socketCount };
+    return { socketCount: count };
   }
 
+  // -----------------------------
+  // GET SOCKET COUNT
+  // -----------------------------
   async getSocketCount(userId) {
     return redis.scard(this.socketKey(userId));
   }
 
+  // -----------------------------
+  // STATUS
+  // -----------------------------
   async setStatus(userId, status) {
     return setHashField({
       key: this.key(userId),
@@ -69,10 +86,7 @@ class UserPresenceStore {
   }
 
   async getStatus(userId) {
-    return getHashField(
-      this.key(userId),
-      "status"
-    );
+    return getHashField(this.key(userId), "status");
   }
 
   async isOnline(userId) {
@@ -80,6 +94,9 @@ class UserPresenceStore {
     return status === "online";
   }
 
+  // -----------------------------
+  // PRESENCE META
+  // -----------------------------
   async setPresence(userId, data) {
     const key = this.key(userId);
 
@@ -115,9 +132,12 @@ class UserPresenceStore {
       );
     }
 
-    return Promise.all(ops);
+    await Promise.all(ops);
   }
 
+  // -----------------------------
+  // CURRENT CHAT
+  // -----------------------------
   async setCurrentChat(userId, roomId) {
     return setHashField({
       key: this.key(userId),
@@ -130,15 +150,12 @@ class UserPresenceStore {
     return setHashField({
       key: this.key(userId),
       field: "currentChat",
-      value: null
+      value: ""
     });
   }
 
   async getCurrentChat(userId) {
-    return getHashField(
-      this.key(userId),
-      "currentChat"
-    );
+    return getHashField(this.key(userId), "currentChat");
   }
 }
 

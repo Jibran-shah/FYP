@@ -3,6 +3,7 @@ import * as profileController from "./baseProfile.controller.js";
 import { validate } from "../../../middlewares/validate.middleware.js";
 import {
   createProfileSchema,
+  fullProfileSchema,
   getProfilesQuerySchema,
   profileIdSchema,
   updateProfileSchema
@@ -97,5 +98,12 @@ router.get("/byUser",protect({requireBaseProfile:true}), profileController.getPr
 router.get("/:id",validate(profileIdSchema,"params"), profileController.getProfileById);
 
 router.get("/",validate(getProfilesQuerySchema,"query"),profileController.getProfilesByQuery);
+
+router.get(
+  "/full/:id",
+  protect(),
+  validate(fullProfileSchema, "params"),
+  profileController.getFullProfile
+);
 
 export default router;

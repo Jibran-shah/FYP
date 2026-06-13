@@ -12,7 +12,7 @@ export const emailSchema = Joi.string()
   });
 
 export const phoneSchema = Joi.string()
-  .pattern(/^\+?[0-9]{10,15}$/)
+  .pattern(/^(?:\+|00)?[0-9]{10,15}$/)
   .messages({
     "string.base": "Phone must be a string",
     "string.empty": "Phone number cannot be empty",

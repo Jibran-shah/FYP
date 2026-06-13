@@ -1,24 +1,26 @@
-import ProfileModel from "../models/BaseProfile.model.js";
+import Profile from "../models/Profile.model.js"
 
 export const syncRole = async ({
-    userId,
-    role,
-    Model,
-    session = null
+  userId,
+  role,
+  Model,
+  session = null
 }) => {
+  const exists = session
+    ? await Model.exists({ user: userId }).session(session)
+    : await Model.exists({ user: userId });
 
-    const existsQuery = Model.exists({ user: userId });
-    const exists = session ? await existsQuery.session(session) : await existsQuery;
+  const update = exists
+    ? { $addToSet: { role } }
+    : { $pull: { role } };
 
-    const update = exists
-        ? { $addToSet: { roles: role } }
-        : { $pull: { roles: role } };
+  const query = Profile.findOneAndUpdate(
+    { user: userId },
+    update,
+    { new: true }
+  );
 
-    const query = ProfileModel.findOneAndUpdate(
-        { user: userId },
-        update
-    );
-
-    if (session) await query.session(session);
-    else await query;
+  return session
+    ? await query.session(session)
+    : await query;
 };

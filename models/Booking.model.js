@@ -78,4 +78,4 @@ const bookingSchema = new Schema(
 ========================= */
 bookingSchema.index({ paymentTransaction: 1 });
 
-export const Booking = model(MODELS.BOOKING, bookingSchema);
+export const Booking = mongoose.model.Booking || model(MODELS.BOOKING, bookingSchema);

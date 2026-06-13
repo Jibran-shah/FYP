@@ -5,7 +5,7 @@ import * as categoryService from "./categories.service.js";
 ========================================================= */
 export const createCategory = async (req, res) => {
   const category = await categoryService.createCategory(
-    req.validated.body
+    req.validated?.body
   );
 
   res.status(201).json({
@@ -33,13 +33,12 @@ export const getCategories = async (req, res) => {
    GET CATEGORY TREE
 ========================================================= */
 export const getCategoryTree = async (req, res) => {
-
   const tree = await categoryService.getCategoryTree(req.validated.query.parentCategory);
+  console.log(tree);
   res.json({
     success: true,
-    data: tree
+    data: {tree}
   });
-
 };
 
 /* =========================================================

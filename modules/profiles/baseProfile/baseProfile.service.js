@@ -1,5 +1,5 @@
 import mongoose, { connections } from "mongoose";
-import Profile from "../../../models/BaseProfile.model.js";
+import Profile from "../../../models/Profile.model.js";
 import User from "../../../models/User.model.js";
 import { BadRequestError, InternalServerError, NotFoundError } from "../../../errors/index.js";
 import { mediaService } from "../../media/media.service.js";
@@ -7,95 +7,217 @@ import { parseMongoDuplicateError } from "../../../utils/errorHandling.utils.js"
 import { generateAccessToken, generateRefreshToken, parseExpiresToSeconds } from "../../../utils/token.utils.js";
 import { refreshSessionSystem } from "../../../utils/session.utils.js";
 import {ServiceProvider} from "../../../models/ServiceProvider.model.js";
-import ProductSellerModel from "../../../models/ProductSeller.model.js";
+import ProductSeller from "../../../models/ProductSeller.model.js";
 import { AUTH_CONFIG } from "../../../config/auth.config.js";
+import {normalizeId} from "../../../utils/normalizeModel.js"
 
-export const createProfile = async (user, profileData, media, contextMap) => {
 
+export const createProfile = async (
+  user,
+  profileData,
+  media,
+  contextMap
+) => {
   const session = await mongoose.startSession();
-  session.startTransaction();
+
+  console.log("[createProfile] START", {
+    userId: user?.id,
+  });
+
+  console.log(media)
 
   try {
+    session.startTransaction();
+    console.log("[createProfile] Transaction started");
 
+    // ---------------------------
+    // 1. Validate user exists
+    // ---------------------------
+    console.log("[createProfile] Fetching user...");
+
+    const userDoc = await User.findById(user.id).session(session);
+
+    console.log("[createProfile] User fetch result:", {
+      exists: !!userDoc,
+      userId: userDoc?._id,
+    });
+
+    if (!userDoc) {
+      console.error("[createProfile] ERROR: User not found");
+      throw new Error("User not found");
+    }
+
+    // ---------------------------
+    // 2. Resolve media assets
+    // ---------------------------
+    console.log("[createProfile] Resolving media...");
 
     const avatarFile = media?.profileAvatar || [];
     const coverFile = media?.profileCover || [];
 
+    console.log("[createProfile] Media input:", {
+      avatarCount: avatarFile.length,
+      coverCount: coverFile.length,
+    });
 
     const avatarAssetIds = await mediaService.resolve({
       files: avatarFile,
       fileIds: [],
       context: contextMap.profileAvatar,
       userId: user.id,
-      session
+      session,
     });
+
+    console.log("[createProfile] Avatar assets resolved:", avatarAssetIds);
 
     const coverAssetIds = await mediaService.resolve({
       files: coverFile,
       fileIds: [],
       context: contextMap.profileCover,
       userId: user.id,
-      session
+      session,
     });
 
+    console.log("[createProfile] Cover assets resolved:", coverAssetIds);
 
+    // ---------------------------
+    // 3. Create / Upsert profile
+    // ---------------------------
+    console.log("[createProfile] Upserting profile...");
+    console.log("asset Ids",coverAssetIds,avatarAssetIds)
 
-    const [profile] = await Profile.create(
-      [
-        {
+    const profile = await Profile.findOneAndUpdate(
+      { user: user.id },
+      {
+        $setOnInsert: {
           user: user.id,
           ...profileData,
-          profileAvatar: avatarAssetIds[0],
-          profileCover: coverAssetIds[0] 
+          profileAvatar: avatarAssetIds[0] || null,
+          profileCover: coverAssetIds[0] || null,
         },
-      ],
-      { session }
-    );
+      },
+      {
+        session,
+        upsert: true,
+        new: true,
+        returnDocument: "after",
+      }
+    ).populate([
+      {
+        path:"profileCover",
+        populate:{
+          path:"file"
+        }
+      },
+      {
+        path:"profileAvatar",
+        populate:{
+          path:"file"
+        }
+      },
+    ]
+    )
 
-    const _user = await User.findOneAndUpdate(
-      { _id: user.id },
-      { baseProfile: profile._id },
-      { session, new:true }
-    );
+    console.log("[createProfile] Profile result:", {
+      exists: !!profile,
+      profileId: profile?._id,
+      userMatch: profile?.user,
+    });
+
+    if (!profile) {
+      console.error("[createProfile] ERROR: Profile creation failed");
+      throw new Error("Profile creation failed");
+    }
+
+    // ---------------------------
+    // 4. Link profile to user
+    // ---------------------------
+    console.log("[createProfile] Linking profile to user...");
+
+    userDoc.baseProfile = profile._id;
+
+    await userDoc.save({ session });
+
+    console.log("[createProfile] User updated with baseProfile:", {
+      userId: userDoc._id,
+      baseProfile: userDoc.baseProfile,
+    });
+
+    // ---------------------------
+    // 5. Generate session + tokens
+    // ---------------------------
+    console.log("[createProfile] Generating tokens...");
 
     const sessionId = refreshSessionSystem.generateId();
 
-    const accessToken = generateAccessToken({ user:_user });
-  
-    const refreshToken = generateRefreshToken({ user:_user, sessionId });
+    const accessToken = generateAccessToken({
+      user: {
+        ...(userDoc.toObject() || userDoc),
+        baseProfile: profile._id,
+      },
+    });
 
-    const ttl = parseExpiresToSeconds(AUTH_CONFIG.REFRESH_TOKEN.EXPIRY);
-    await refreshSessionSystem.save(_user._id, sessionId, refreshToken);
+    const refreshToken = generateRefreshToken({
+      user: {
+        ...(userDoc.toObject() || userDoc),
+        baseProfile: profile._id,
+      },
+      sessionId,
+    });
+
+    console.log("[createProfile] Tokens generated:", {
+      sessionId,
+      accessTokenExists: !!accessToken,
+      refreshTokenExists: !!refreshToken,
+    });
+
+    // ---------------------------
+    // 6. Save session
+    // ---------------------------
+    console.log("[createProfile] Saving session...");
+
+    await refreshSessionSystem.save(
+      userDoc._id,
+      sessionId,
+      refreshToken
+    );
+
+    console.log("[createProfile] Session saved");
+
+    // ---------------------------
+    // 7. Commit transaction
+    // ---------------------------
+    console.log("[createProfile] Committing transaction...");
+
     await session.commitTransaction();
+
+    console.log("[createProfile] SUCCESS");
 
     return {
       accessToken,
       refreshToken,
-      profile
+      profile: normalizeId(profile),
+      user: normalizeId(userDoc),
     };
-
   } catch (err) {
-
-    const duplicate = parseMongoDuplicateError(err);
-    if(duplicate){
-      const message = 
-      duplicate.field==="user"?
-      "Profile already exist for this user":duplicate.message;
-      throw new BadRequestError(message)
-    }
+    console.error("[createProfile] FAILED:", {
+      message: err.message,
+      stack: err.stack,
+    });
 
     await session.abortTransaction();
+
+    console.log("[createProfile] Transaction aborted");
+
     throw err;
-
   } finally {
-
-    session.endSession();
-
+    await session.endSession();
+    console.log("[createProfile] Session ended");
   }
 };
 
 export const getProfileByUser = async (id) => {
-  return Profile.findOne({user:id})
+  const profile = await Profile.findOne({user:id})
   .populate([
       {
         path: "profileAvatar",select:"file namespace slug",
@@ -109,11 +231,15 @@ export const getProfileByUser = async (id) => {
             path:"file",
             select:"url formate size mimeType"
       }}
-    ]);
+    ])
+  .lean()
+
+  
+  return normalizeId(profile)
 };
 
 export const getProfileById = async (id)=>{
-  return Profile.findById(id)
+  const profile = await  Profile.findById(id)
   .populate([
       {
         path: "profileAvatar",select:"file namespace slug",
@@ -127,7 +253,9 @@ export const getProfileById = async (id)=>{
             path:"file",
             select:"url formate size mimeType"
       }}
-    ]);
+    ])
+  .lean()
+  return normalizeId(profile);
 }
 
 export const getProfilesByQuery = async (filters)=>{
@@ -257,10 +385,10 @@ export const updateProfile = async (
         ...(coverAssetIds.length && { profileCover: coverAssetIds[0] }),
       },
       { new: true, session }
-    );
+    ).lean()
 
     await session.commitTransaction();
-    return updated;
+    return normalizeId(updated);
   } catch (err) {
     await session.abortTransaction();
     throw err;
@@ -277,14 +405,13 @@ export const deleteProfile = async (userId) => {
   try {
     const profile = await Profile.findOne({ user: userId }).session(session);
     if (!profile) throw new NotFoundError("profile doesn't exists");
-
     await mediaService.remove(profile.profileAvatar, userId, session);
     await mediaService.remove(profile.profileCover, userId, session);
 
     await Profile.deleteOne({ _id: profile._id }).session(session);
 
-    await {ServiceProvider}.deleteOne({ user: userId }).session(session);
-    await ProductSellerModel.deleteOne({ user: userId }).session(session);
+    await ServiceProvider.deleteOne({ user: userId }).session(session);
+    await ProductSeller.deleteOne({ user: userId }).session(session);
 
     await User.findByIdAndDelete(userId);
 
@@ -298,4 +425,53 @@ export const deleteProfile = async (userId) => {
   } finally {
     session.endSession();
   }
+};
+
+
+// import User from "../user/user.model.js";
+// import BaseProfile from "../baseProfile/baseProfile.model.js";
+// import { ServiceProvider } from "../serviceProvider/serviceProvider.model.js";
+// import ProductSeller from "../productSeller/productSeller.model.js";
+
+export const getFullProfileService = async (id) => {
+
+  const user = await User.findById(id)
+  .populate({
+    path:"baseProfile",
+    populate:[{
+        path:"profileCover",
+        populate:{
+          path:"file"
+        }
+      },
+      {
+        path:"profileAvatar",
+        populate:{
+          path:"file"
+        }
+      }
+    ]
+  })
+  .populate("serviceProvider")
+  .populate({
+    path:"productSeller",
+    populate:{
+      path:"shopLogo"
+    }
+  })
+  .select("-password -__v")
+  .lean()
+
+
+  const baseProfile = user.baseProfile;
+  const serviceProvider = user.serviceProvider
+  const productSeller = user.productSeller
+
+  // 3. Compose final object
+  return {
+    user:normalizeId(user),
+    baseProfile: baseProfile || null,
+    serviceProvider: serviceProvider || null,
+    productSeller: productSeller || null,
+  };
 };

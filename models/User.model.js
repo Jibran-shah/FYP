@@ -43,7 +43,7 @@ const userSchema = new mongoose.Schema({
 
   baseProfile: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: "BaseProfile",
+    ref: "Profile",
     default: null
   },
 
@@ -78,7 +78,9 @@ userSchema.pre("save", async function () {
   this.password = await bcrypt.hash(this.password, AUTH_CONFIG.BCRYPT.SALT_ROUNDS);
 });
 
-export default mongoose.model(
+const User = mongoose.model.User || mongoose.model(
   "User",
   userSchema
 );
+
+export default User

@@ -65,6 +65,12 @@ export const verifyEmailSchema = Joi.object({
 });
 
 
+export const paramIdSchema = Joi.object({
+  id: mongoIdSchema
+    .required()
+    .messages(requiredMsg("id"))
+})
+
 
 export const resendVerifyEmailSchema = Joi.object({
   userId: mongoIdSchema

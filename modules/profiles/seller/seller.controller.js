@@ -4,21 +4,27 @@ import { parseExpiresToSeconds } from "../../../utils/token.utils.js";
 import { setCookie } from "../../../utils/cookie.js";
 import { AUTH_CONFIG } from "../../../config/auth.config.js";
 
+let counter = 0;
 
 export const createProductSeller = async (req, res) => {
-  const { seller, refreshToken, accessToken } =
-    await productSellerService.createSeller({
-      ...req.validated?.body,
-      user: req.user,
-      shopLogoFile: req.media?.shopLogoFile,
-      shopLogoId: req.validated?.body?.shopLogoId,
-      mediaContext: req.mediaContext
-    });
+
+  console.log("create seller req counter:",counter)
+  const {
+    seller,
+    user,
+    refreshToken,
+    accessToken
+  } = await productSellerService.createSeller({
+    ...req.validated?.body,
+    user: req.user,
+    shopLogoFile: req.media?.shopLogoFile,
+    shopLogoId: req.validated?.body?.shopLogoId,
+    mediaContext: req.mediaContext
+  });
 
   const refreshTtlSeconds = parseExpiresToSeconds(
     AUTH_CONFIG.REFRESH_TOKEN.EXPIRY
   );
-
 
   setCookie(
     res,
@@ -40,10 +46,12 @@ export const createProductSeller = async (req, res) => {
 
   return res.status(201).json({
     success: true,
-    productSeller: seller
+    data: {
+      user,
+      seller
+    }
   });
 };
-
 
 // READ ALL
 export const getAllProductSellers = async (req, res) => {
@@ -102,7 +110,7 @@ export const updateProductSeller = async (req, res) => {
 
 // DELETE
 export const deleteProductSeller = async (req, res) => {
-  const {refreshToken,accessToken} = await productSellerService.deleteSeller(
+  const {refreshToken,accessToken} = await productSellerService.deleteSellerById(
     req.user
   );
     

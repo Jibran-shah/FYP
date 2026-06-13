@@ -49,9 +49,8 @@ router.put(
 );
 
 router.delete(
-  "/:id",
+  "/",
   protect({requireServiceProvider:true}),
-  validate(serviceProviderIdParamSchema, "params"),
   asyncHandler(deleteServiceProvider)
 );
 

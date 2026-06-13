@@ -16,14 +16,24 @@ import {
 /* =========================================================
    CREATE
 ========================================================= */
+
+let counter = 0;
+
 export const createServiceProvider = async (req, res) => {
   const payload = req.validated?.body;
 
-  const { provider, refreshToken, accessToken } =
-    await createProviderService({
-      ...payload,
-      user: req.user
-    });
+
+  console.log("create provider req counter:",counter);
+
+  const {
+    provider,
+    user,
+    refreshToken,
+    accessToken
+  } = await createProviderService({
+    ...payload,
+    user: req.user
+  });
 
   const refreshTtlSeconds = parseExpiresToSeconds(
     AUTH_CONFIG.REFRESH_TOKEN.EXPIRY
@@ -47,7 +57,13 @@ export const createServiceProvider = async (req, res) => {
     accessTtlSeconds
   );
 
-  return res.status(201).json({ provider });
+  return res.status(201).json({
+    success: true,
+    data: {
+      provider,
+      user
+    }
+  });
 };
 
 /* =========================================================
@@ -96,7 +112,7 @@ export const updateServiceProvider = async (req, res) => {
 ========================================================= */
 export const updateServiceProviderByUser = async (req, res) => {
   const updates = req.validated?.body;
-
+  console.log(updates)
   const updatedProvider = await updateProviderByUserService(
     updates,
     req.user?.id || null
@@ -109,8 +125,7 @@ export const updateServiceProviderByUser = async (req, res) => {
    DELETE
 ========================================================= */
 export const deleteServiceProvider = async (req, res) => {
-  const { refreshToken, accessToken } = await deleteProviderService(req.user);
-
+  const { refreshToken, accessToken,user } = await deleteProviderService(req.user);
   const refreshTtlSeconds = parseExpiresToSeconds(
     AUTH_CONFIG.REFRESH_TOKEN.EXPIRY
   );
@@ -134,7 +149,10 @@ export const deleteServiceProvider = async (req, res) => {
   );
 
   return res.status(200).json({
-    message: "Service provider deleted successfully"
+    success:true,
+    data:{
+      user
+    }
   });
 };
 

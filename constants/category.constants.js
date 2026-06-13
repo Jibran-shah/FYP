@@ -13,7 +13,9 @@ export const CATEGORY_HIERARCHY_LEVEL_ARRAY = Object.freeze(
 ====================== */
 export const CATEGORY_APPLIES_TO = Object.freeze({
   PRODUCT: "product",
-  SERVICE: "service"
+  SERVICE: "service",
+  SERVICE_PROVIDER:"service provider",
+  PRODUCT_SELLER:"product seller"
 });
 
 export const CATEGORY_APPLIES_TO_ARRAY = Object.freeze(

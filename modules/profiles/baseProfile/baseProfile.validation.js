@@ -1,13 +1,11 @@
 import Joi from "joi";
 import { mongoIdSchema } from "../../../validationSchemas/mongodb.schemas.js";
+import { phoneSchema } from "../../../validationSchemas/general.schemas.js";
 
 export const createProfileSchema = Joi.object({
   fullName: Joi.string().trim().min(1).max(80).required(),
 
-  phone: Joi.string()
-    .trim()
-    .pattern(/^\+?[1-9]\d{7,14}$/)
-    .optional(),
+  phone: phoneSchema.optional(),
 
   bio: Joi.string().max(500).optional(),
   country: Joi.string().trim().optional(),
@@ -42,6 +40,10 @@ export const updateProfileSchema = Joi.object({
     "object.missing": "At least one field must be provided"
   });
 
+
+export const fullProfileSchema  = Joi.object({
+  id: mongoIdSchema.required().label("id")
+});
 
 export const getProfilesQuerySchema = Joi.object({
   fullName: Joi.string().trim().min(1).max(80).optional(),

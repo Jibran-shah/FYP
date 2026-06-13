@@ -1,140 +1,223 @@
-import { 
-  logoutService, 
-  logoutAllService, 
+import {
+  logoutService,
+  logoutAllService,
   register,
   refreshTokenService,
   login,
-  verifyEmailService,          
-  resendVerifyEmailService, 
+  verifyEmailService,
+  resendVerifyEmailService,
   forgotPasswordService,
   resendResetOtpService,
   verifyResetOtpService,
-  resetPasswordService
+  resetPasswordService,
+  getUserByIdService,
+  getMeService
 } from "./auth.service.js";
-import { 
-  setCookie,
-  clearCookie,
-} from "../../utils/cookie.js";
+
+import { setCookie, clearCookie } from "../../utils/cookie.js";
 import { parseExpiresToSeconds } from "../../utils/token.utils.js";
-import { InvalidTokenError, UnauthorizedError } from "../../errors/index.js";
+import {
+  InvalidTokenError,
+  UnauthorizedError
+} from "../../errors/index.js";
 import { AUTH_CONFIG } from "../../config/auth.config.js";
 
-
-/**
- * Register User Controller
- */
+/* =========================================================
+   REGISTER
+========================================================= */
 export const registerUser = async (req, res) => {
-
   const { userName, email, password } = req.validated?.body;
 
-  const { user, accessToken, refreshToken } = await register(userName, email, password);
+  const { user, accessToken, refreshToken } = await register(
+    userName,
+    email,
+    password
+  );
 
-  const refreshTtlSeconds = parseExpiresToSeconds(AUTH_CONFIG.REFRESH_TOKEN.EXPIRY);
-  setCookie(res, AUTH_CONFIG.REFRESH_TOKEN.COOKIE_NAME, refreshToken, refreshTtlSeconds);
+  setCookie(
+    res,
+    AUTH_CONFIG.REFRESH_TOKEN.COOKIE_NAME,
+    refreshToken,
+    parseExpiresToSeconds(AUTH_CONFIG.REFRESH_TOKEN.EXPIRY)
+  );
 
-  const accessTtlSeconds = parseExpiresToSeconds(AUTH_CONFIG.ACCESS_TOKEN.EXPIRY);
-  setCookie(res, AUTH_CONFIG.ACCESS_TOKEN.COOKIE_NAME, accessToken, accessTtlSeconds);
+  setCookie(
+    res,
+    AUTH_CONFIG.ACCESS_TOKEN.COOKIE_NAME,
+    accessToken,
+    parseExpiresToSeconds(AUTH_CONFIG.ACCESS_TOKEN.EXPIRY)
+  );
 
   res.status(201).json({
     success: true,
-    message: "User registered successfully. Verification email sent.",
+    message: "Registration successful",
     data: {
-      userId:user._id,
-      userName:user.userName,
-      email: user.email,
-      role: user.role
-    },
+      user: {
+        userId: user._id,
+        userName: user.userName,
+        email: user.email,
+        role: user.role,
+        isEmailVerified: user.isEmailVerified
+      }
+    }
   });
 };
 
-
-/**
- * Login User Controller
- */
+/* =========================================================
+   LOGIN
+========================================================= */
 export const loginUser = async (req, res) => {
   const { userName, email, password } = req.validated?.body;
 
-  const { user, accessToken, refreshToken } = await login(userName, email, password);
+  const { user, accessToken, refreshToken } = await login(
+    userName,
+    email,
+    password
+  );
 
-  const refreshTtlSeconds = parseExpiresToSeconds(AUTH_CONFIG.REFRESH_TOKEN.EXPIRY);
-  setCookie(res, AUTH_CONFIG.REFRESH_TOKEN.COOKIE_NAME, refreshToken, refreshTtlSeconds);
+  setCookie(
+    res,
+    AUTH_CONFIG.REFRESH_TOKEN.COOKIE_NAME,
+    refreshToken,
+    parseExpiresToSeconds(AUTH_CONFIG.REFRESH_TOKEN.EXPIRY)
+  );
 
-  const accessTtlSeconds = parseExpiresToSeconds(AUTH_CONFIG.ACCESS_TOKEN.EXPIRY);
-  setCookie(res, AUTH_CONFIG.ACCESS_TOKEN.COOKIE_NAME, accessToken, accessTtlSeconds);
+  setCookie(
+    res,
+    AUTH_CONFIG.ACCESS_TOKEN.COOKIE_NAME,
+    accessToken,
+    parseExpiresToSeconds(AUTH_CONFIG.ACCESS_TOKEN.EXPIRY)
+  );
 
   res.status(200).json({
     success: true,
-    message: "User logged in successfully",
+    message: "Login successful",
     data: {
-      userName:user.userName,
-      email: user.email,
-      role: user.role
-    },
+      user: {
+        userId: user._id,
+        userName: user.userName,
+        email: user.email,
+        role: user.role,
+        isEmailVerified: user.isEmailVerified,
+        baseProfile: user.baseProfile,
+        serviceProvider: user.serviceProvider,
+        productSeller: user.productSeller
+      }
+    }
   });
 };
 
+/* =========================================================
+   GET ME (SESSION SOURCE OF TRUTH)
+========================================================= */
+export const getMe = async (req, res) => {
+  const user = await getMeService(req.user.id)
+  if (!user) {
+    return res.status(401).json({
+      success: false,
+      message: "Not authenticated"
+    });
+  }
 
+  res.status(200).json({
+    success: true,
+    message: "Session active",
+    data: {
+      user: {
+        id: user.id,
+        userName: user.userName,
+        email: user.email,
+        role: user.role,
+        isEmailVerified: user.isEmailVerified,
+        baseProfile: user.baseProfile,
+        serviceProvider: user.serviceProvider,
+        productSeller: user.productSeller
+      }
+    }
+  });
+};
 
-/**
- * Refresh access token controller
- */
+/* =========================================================
+   REFRESH TOKEN
+========================================================= */
 export const refreshToken = async (req, res) => {
   const refreshTokenCookie = req.cookies.refreshToken;
 
-  if (!refreshTokenCookie) throw new UnauthorizedError("Refresh token missing");
+  console.log("refresh")
 
-  const { accessToken, refreshToken } = await refreshTokenService(refreshTokenCookie);
+  if (!refreshTokenCookie) {
+    throw new UnauthorizedError("Refresh token missing");
+  }
 
-  const refreshTtlSeconds = parseExpiresToSeconds(AUTH_CONFIG.REFRESH_TOKEN.EXPIRY);
-  setCookie(res, AUTH_CONFIG.REFRESH_TOKEN.COOKIE_NAME, refreshToken, refreshTtlSeconds);
+  const { accessToken, refreshToken } = await refreshTokenService(
+    refreshTokenCookie
+  );
 
-  const accessTtlSeconds = parseExpiresToSeconds(AUTH_CONFIG.ACCESS_TOKEN.EXPIRY);
-  setCookie(res, AUTH_CONFIG.ACCESS_TOKEN.COOKIE_NAME, accessToken, accessTtlSeconds);
+  setCookie(
+    res,
+    AUTH_CONFIG.REFRESH_TOKEN.COOKIE_NAME,
+    refreshToken,
+    parseExpiresToSeconds(AUTH_CONFIG.REFRESH_TOKEN.EXPIRY)
+  );
 
-  res.json({
+  setCookie(
+    res,
+    AUTH_CONFIG.ACCESS_TOKEN.COOKIE_NAME,
+    accessToken,
+    parseExpiresToSeconds(AUTH_CONFIG.ACCESS_TOKEN.EXPIRY)
+  );
+
+  res.status(200).json({
     success: true,
-    message: "Token refreshed successfully"
+    message: "Token refreshed"
   });
 };
 
-
-
-/**
- * Logout current session
- */
+/* =========================================================
+   LOGOUT
+========================================================= */
 export const logout = async (req, res) => {
   const refreshTokenCookie = req.cookies.refreshToken;
-  if (!refreshTokenCookie) throw new InvalidTokenError("No refresh token found");
+
+  if (!refreshTokenCookie) {
+    throw new InvalidTokenError("No refresh token found");
+  }
 
   await logoutService(refreshTokenCookie);
 
   clearCookie(res, AUTH_CONFIG.REFRESH_TOKEN.COOKIE_NAME);
   clearCookie(res, AUTH_CONFIG.ACCESS_TOKEN.COOKIE_NAME);
 
-  res.json({ success: true, message: "Logged out from current session" });
+  res.status(200).json({
+    success: true,
+    message: "Logged out successfully"
+  });
 };
 
-
-/**
- * Logout all devices
- */
+/* =========================================================
+   LOGOUT ALL
+========================================================= */
 export const logoutAll = async (req, res) => {
   const refreshTokenCookie = req.cookies.refreshToken;
 
-  if (!refreshTokenCookie) throw new InvalidTokenError("No refresh token found");
+  if (!refreshTokenCookie) {
+    throw new InvalidTokenError("No refresh token found");
+  }
 
   await logoutAllService(refreshTokenCookie);
 
-  clearCookie(res, "refreshToken");
-  clearCookie(res, "accessToken");
+  clearCookie(res, AUTH_CONFIG.REFRESH_TOKEN.COOKIE_NAME);
+  clearCookie(res, AUTH_CONFIG.ACCESS_TOKEN.COOKIE_NAME);
 
-  res.json({ success: true, message: "Logged out from all devices" });
+  res.status(200).json({
+    success: true,
+    message: "Logged out from all devices"
+  });
 };
 
-
-/**
- * Send otp for changing password
- */
+/* =========================================================
+   FORGOT PASSWORD
+========================================================= */
 export const forgotPassword = async (req, res) => {
   const { email } = req.validated?.body;
 
@@ -142,25 +225,35 @@ export const forgotPassword = async (req, res) => {
 
   res.status(200).json({
     success: true,
-    message: "OTP sent to email",
+    message: "OTP sent to email"
   });
 };
 
-
+/* =========================================================
+   VERIFY RESET OTP
+========================================================= */
 export const verifyResetOtp = async (req, res) => {
   const { email, otp } = req.validated?.body;
+
   const { resetToken } = await verifyResetOtpService(email, otp);
-  const resetTtlSeconds = parseExpiresToSeconds(AUTH_CONFIG.RESET_TOKEN.EXPIRY)
-  setCookie(res, AUTH_CONFIG.RESET_TOKEN.COOKIE_NAME, resetToken, resetTtlSeconds);
+
+  setCookie(
+    res,
+    AUTH_CONFIG.RESET_TOKEN.COOKIE_NAME,
+    resetToken,
+    parseExpiresToSeconds(AUTH_CONFIG.RESET_TOKEN.EXPIRY)
+  );
+
   res.status(200).json({
     success: true,
-    message: "OTP verified successfully"
+    message: "OTP verified"
   });
 };
 
-
+/* =========================================================
+   RESET PASSWORD
+========================================================= */
 export const resetPassword = async (req, res) => {
-
   const resetToken = req.cookies?.resetToken;
   const { newPassword } = req.validated?.body;
 
@@ -170,34 +263,31 @@ export const resetPassword = async (req, res) => {
 
   await resetPasswordService(resetToken, newPassword);
 
-  clearCookie(res, "resetToken"); // 🔥 IMPORTANT SECURITY STEP
+  clearCookie(res, AUTH_CONFIG.RESET_TOKEN.COOKIE_NAME);
 
   res.status(200).json({
     success: true,
-    message: "Password reset successfully",
+    message: "Password reset successful"
   });
 };
 
-
+/* =========================================================
+   RESEND RESET OTP
+========================================================= */
 export const resendResetOtp = async (req, res) => {
-
   const { email } = req.validated?.body;
 
   await resendResetOtpService(email);
 
   res.status(200).json({
     success: true,
-    message: "OTP resent successfully",
+    message: "OTP resent"
   });
 };
 
-
-
-
-/**
- * Verify Email Controller (via token link)
- * Example: GET /verify-email?token=abc123
- */
+/* =========================================================
+   VERIFY EMAIL
+========================================================= */
 export const verifyEmail = async (req, res) => {
   const { userId, token } = req.validated?.query;
 
@@ -209,22 +299,47 @@ export const verifyEmail = async (req, res) => {
 
   res.status(200).json({
     success: true,
-    message: "Email verified successfully",
+    message: "Email verified"
   });
 };
 
-
-
-/**
- * Resend Verification Email
- */
+/* =========================================================
+   RESEND VERIFY EMAIL
+========================================================= */
 export const resendVerifyEmail = async (req, res) => {
-  const { userId } = req.validated.body;
+  const userId = req?.user?.id;
 
   await resendVerifyEmailService(userId);
 
   res.status(200).json({
     success: true,
-    message: "Verification email resent successfully",
+    message: "Verification email sent"
   });
 };
+
+
+export const getUserById = async (req,res) =>{
+
+  const {id} = req.validated?.params;
+
+  console.log(id)
+  const user = await getUserByIdService(id);
+
+  console.log(user)
+
+  res.status(200).json({
+    success:true,
+    data:{
+      user: {
+        id: user._id,
+        userName: user.userName,
+        email: user.email,
+        role: user.role,
+        isEmailVerified: user.isEmailVerified,
+        baseProfile: user.baseProfile,
+        serviceProvider: user.serviceProvider,
+        productSeller: user.productSeller
+      }
+    }
+  })
+}

@@ -6,6 +6,7 @@ import { generateOtp, otpRequests, otpStore } from "../../utils/otp.utils.js";
 import { AUTH_CONFIG } from "../../config/auth.config.js";
 import { generateToken } from "../../utils/token.utils.js";
 import { OtpRequestLimitError } from "../../errors/Otp.error.js";
+import { BadRequestError } from "../../errors/Http.error.js";
 
 class EmailService {
   async send({ type, to, data, userId }, options = {}) {
@@ -30,9 +31,9 @@ class EmailService {
   async sendVerificationEmail({ to, name, userId }) {
     const active = await emailVerificationStore.hasCooldown(userId);
     if (active) {
-      throw new BadRequestError(
-        "Please wait before requesting another verification email"
-      );
+      // throw new BadRequestError(
+      //   "Please wait before requesting another verification email"
+      // );
     }
     
     const token = generateToken()
@@ -43,7 +44,7 @@ class EmailService {
         );
 
     const link = generateVerificationLink(userId,token);
-    
+    console.log(link)
     return this.send({
       type: EMAIL_TYPES.VERIFY_EMAIL,
       to,

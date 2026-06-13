@@ -139,9 +139,8 @@ router.put(
    DELETE SELLER
 ========================================================= */
 router.delete(
-  "/:id",
+  "/",
   protect(),
-  validate(productSellerIdParamSchema, "params"),
   asyncHandler(deleteProductSeller)
 );
 

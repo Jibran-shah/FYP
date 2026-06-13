@@ -1,6 +1,6 @@
 import Joi from "joi";
-import { mongoIdSchema } from "../../../validationSchemas/mongodb.schemas.js";
-import { BOOKING_STATUS_ARRAY } from "../../constants/booking.constants.js";
+import { mongoIdSchema } from "../../validationSchemas/mongodb.schemas.js";
+import { BOOKING_STATUS, BOOKING_STATUS_ARRAY } from "../../constants/booking.constants.js";
 
 /* =========================
    PARAMS: BOOKING ID
@@ -12,6 +12,7 @@ export const paramsBookingIdSchema = Joi.object({
 /* =========================
    CREATE BOOKING
 ========================= */
+
 export const createBookingSchema = Joi.object({
   serviceProvider: mongoIdSchema.required().label("serviceProvider"),
 

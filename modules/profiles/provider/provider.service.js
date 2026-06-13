@@ -40,10 +40,7 @@ import {
 } from "../../../utils/location.utils.js";
 import { AUTH_CONFIG } from "../../../config/auth.config.js";
 import { syncProviderLocationToServices } from "../../services/services.service.js";
-
-/* =========================
-   CREATE PROVIDER
-========================= */
+import { normalizeId } from "../../../utils/normalizeModel.js";
 
 export const createProvider = async ({
   user,
@@ -56,26 +53,74 @@ export const createProvider = async ({
   fullAddress
 }) => {
   const session = await mongoose.startSession();
-  session.startTransaction();
+
+  console.log("[createProvider] START", { userId: user?.id });
 
   try {
+    session.startTransaction();
+
+    // ---------------------------
+    // 1. Validate user exists
+    // ---------------------------
+    const userDoc = await User.findById(user.id).session(session);
+
+    console.log("[createProvider] User fetch:", {
+      exists: !!userDoc,
+      userId: userDoc?._id
+    });
+
+    if (!userDoc) {
+      throw new Error("User not found");
+    }
+
+    // ---------------------------
+    // 2. Build location
+    // ---------------------------
     const location = buildLocation(
       locationLn,
       locationLat,
       fullAddress
     );
 
-    const provider = await ServiceProvider.create(
-      [{
-        user: user.id,
-        title,
-        description,
-        skills,
-        experienceYears,
-        ...(location && { location })
-      }],
-      { session }
-    );
+    console.log("[createProvider] Location built:", location);
+
+    // ---------------------------
+    // 3. Upsert provider
+    // ---------------------------
+    const provider = await ServiceProvider.findOneAndUpdate(
+      { user: user.id },
+      {
+        $setOnInsert: {
+          user: user.id,
+          title,
+          description,
+          skills,
+          experienceYears,
+          ...(location && { location })
+        }
+      },
+      {
+        session,
+        upsert: true,
+        new: true,
+        runValidators: true,
+        returnDocument: "after"
+      }
+    ).populate({path:"user"})
+
+    console.log("[createProvider] Provider result:", {
+      exists: !!provider,
+      providerId: provider?._id
+    });
+
+    if (!provider) {
+      throw new Error("Provider creation failed");
+    }
+
+    // ---------------------------
+    // 4. Sync role
+    // ---------------------------
+    console.log("[createProvider] Syncing role...");
 
     await syncRole({
       userId: user.id,
@@ -84,52 +129,91 @@ export const createProvider = async ({
       session
     });
 
-    const _user = await User.findOneAndUpdate(
-      { _id: user.id },
-      { serviceProvider: provider[0]._id },
-      { session, new: true }
-    );
+    console.log("[createProvider] Role synced");
 
+    // ---------------------------
+    // 5. Update user reference
+    // ---------------------------
+    userDoc.serviceProvider = provider._id;
+    await userDoc.save({ session });
+
+    console.log("[createProvider] User updated:", {
+      userId: userDoc._id,
+      serviceProvider: userDoc.serviceProvider
+    });
+
+    // ---------------------------
+    // 6. Generate tokens
+    // ---------------------------
     const sessionId = refreshSessionSystem.generateId();
 
-    const accessToken = generateAccessToken({ user: _user});
-    const refreshToken = generateRefreshToken({ user: _user, sessionId });
+    const accessToken = generateAccessToken({
+      user: {
+        ...(userDoc.toObject() || userDoc),
+        serviceProvider: provider._id
+      }
+    });
 
-    const ttl = parseExpiresToSeconds(
-      AUTH_CONFIG.REFRESH_TOKEN.EXPIRY
-    );
+    const refreshToken = generateRefreshToken({
+      user: {
+        ...(userDoc.toObject() || userDoc),
+        serviceProvider:provider._id
+      },
+      sessionId
+    });
 
+    console.log("[createProvider] Tokens generated:", {
+      sessionId,
+      accessToken: !!accessToken,
+      refreshToken: !!refreshToken
+    });
+
+    // ---------------------------
+    // 7. Save session
+    // ---------------------------
     await refreshSessionSystem.save(
-      user.id,
+      userDoc._id,
       sessionId,
       refreshToken
     );
 
-    await session.commitTransaction();
-    session.endSession();
+    console.log("[createProvider] Session saved");
 
-    return { provider: provider[0], refreshToken, accessToken };
+    // ---------------------------
+    // 8. Commit transaction
+    // ---------------------------
+    await session.commitTransaction();
+
+    console.log("[createProvider] SUCCESS");
+
+    return {
+      user: normalizeId(userDoc),
+      provider: normalizeId(provider),
+      refreshToken,
+      accessToken
+    };
+
   } catch (err) {
+    console.error("[createProvider] ERROR:", {
+      message: err.message,
+      stack: err.stack
+    });
 
     await session.abortTransaction();
-    session.endSession();
 
     const error = parseMongoDuplicateError(err);
-
     if (error) {
-
       throw new ConflictError(
         `${error.field} already exists`,
-        [
-          {
-            field: error.field,
-            message: error.message
-          }
-        ]
+        [{ field: error.field, message: error.message }]
       );
     }
 
     throw err;
+
+  } finally {
+    await session.endSession();
+    console.log("[createProvider] SESSION ENDED");
   }
 };
 
@@ -382,14 +466,13 @@ export const deleteProvider = async (user) => {
 
   try {
     const provider =
-      await ServiceProvider.findById(user.id).session(session);
+      await ServiceProvider.findById(user.serviceProvider).session(session);
 
     if (!provider) {
       throw new NotFoundError(
         "Service provider not found"
       );
     }
-
     await provider.deleteOne({ session });
 
     await syncRole({
@@ -423,7 +506,7 @@ export const deleteProvider = async (user) => {
     await session.commitTransaction();
     session.endSession();
 
-    return { refreshToken, accessToken };
+    return { refreshToken, accessToken, user:_user };
   } catch (err) {
     await session.abortTransaction();
     session.endSession();

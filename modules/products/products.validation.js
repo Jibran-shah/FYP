@@ -58,31 +58,131 @@ export const updateProductSchema = Joi.object({
 
 
 export const productQuerySchema = Joi.object({
-  page: Joi.number().integer().min(1).default(1),
+  /* PAGINATION */
+  page: Joi.number()
+    .integer()
+    .min(1)
+    .default(1),
 
-  limit: Joi.number().integer().min(1).max(100).default(10),
+  limit: Joi.number()
+    .integer()
+    .min(1)
+    .max(100)
+    .default(10),
 
-  minPrice: Joi.number().min(0),
+  /* SEARCH */
+  search: Joi.string()
+    .trim()
+    .allow("")
+    .max(200)
+    .default(""),
 
-  maxPrice: Joi.number().min(0),
+  name: Joi.string()
+    .trim()
+    .allow("")
+    .max(200),
 
-  category: mongoIdSchema.optional(),
+  /* PRICE */
+  minPrice: Joi.number()
+    .min(0)
+    .empty("")
+    .optional(),
 
-  seller: mongoIdSchema.optional(),
+  maxPrice: Joi.number()
+    .min(0)
+    .empty("")
+    .optional(),
 
-  status: Joi.string().valid(...PRODUCT_STATUS_ARRAY),
+  /* REFERENCES */
+  category: mongoIdSchema
+    .empty("")
+    .optional(),
 
-  categoryPath: Joi.string().trim(),
+  seller: mongoIdSchema
+    .empty("")
+    .optional(),
 
-  sort: Joi.string().valid(
+  /* CATEGORY PATH */
+  categoryPath: Joi.string()
+    .trim()
+    .allow("")
+    .optional(),
+
+  /* PRODUCT STATUS */
+  status: Joi.string()
+    .valid(...PRODUCT_STATUS_ARRAY)
+    .empty("")
+    .optional(),
+
+  /* INVENTORY */
+  inStock: Joi.boolean()
+    .empty("")
+    .optional(),
+
+  minQuantity: Joi.number()
+    .integer()
+    .min(0)
+    .empty("")
+    .optional(),
+
+  /* RATINGS */
+  minRating: Joi.number()
+    .min(0)
+    .max(5)
+    .empty("")
+    .optional(),
+
+  minRatingCount: Joi.number()
+    .integer()
+    .min(0)
+    .empty("")
+    .optional(),
+
+  /* DATES */
+  createdFrom: Joi.date()
+    .empty("")
+    .optional(),
+
+  createdTo: Joi.date()
+    .empty("")
+    .optional(),
+
+  /* SORTING */
+  sort: Joi.string()
+    .valid(
       "price",
       "-price",
       "createdAt",
       "-createdAt",
       "ratingAverage",
-      "-ratingAverage"
-  ).default("-createdAt")
-}).with("minPrice", "maxPrice");
+      "-ratingAverage",
+      "ratingCount",
+      "-ratingCount"
+    )
+    .empty("")
+    .default("-createdAt"),
+
+  /* GEO SEARCH */
+  lng: Joi.number()
+    .min(-180)
+    .max(180)
+    .empty("")
+    .optional(),
+
+  lat: Joi.number()
+    .min(-90)
+    .max(90)
+    .empty("")
+    .optional(),
+
+  radius: Joi.number()
+    .min(0)
+    .max(50000)
+    .empty("")
+    .optional(),
+})
+  .with("lat", "lng")
+  .with("lng", "lat");
 
 
 export const idParamSchema = Joi.object({

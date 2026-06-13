@@ -6,33 +6,28 @@ export const socketAuth = (socket, next) => {
     let token = null;
 
     // =========================
-    // 1. COOKIE EXTRACTION
+    // 1. PRIORITY: AUTH FIRST (best practice)
     // =========================
-    const cookies = socket.handshake.headers?.cookie;
+    token =
+      socket.handshake.auth?.token ||
+      socket.handshake.headers?.authorization?.split(" ")[1];
 
-    if (cookies) {
-      const parsed = cookie.parse(cookies);
-
+    // =========================
+    // 2. COOKIE FALLBACK
+    // =========================
+    if (!token && socket.handshake.headers?.cookie) {
+      const parsed = cookie.parse(socket.handshake.headers.cookie);
       token = parsed.accessToken || parsed.token;
-    }
-
-    // =========================
-    // 2. FALLBACK (AUTH HEADER)
-    // =========================
-    if (!token) {
-      token =
-        socket.handshake.auth?.token ||
-        socket.handshake.headers?.authorization?.split(" ")[1];
     }
 
     // =========================
     // 3. VALIDATION
     // =========================
-    if (!token) {
-      return next(new Error("No token provided"));
+    if (!token || typeof token !== "string") {
+      return next(new Error("Unauthorized"));
     }
 
-    // remove "Bearer " if client sends it
+    // normalize bearer
     if (token.startsWith("Bearer ")) {
       token = token.slice(7);
     }
@@ -40,7 +35,7 @@ export const socketAuth = (socket, next) => {
     const payload = verifyAccessToken(token);
 
     if (!payload?.userId) {
-      return next(new Error("Invalid token payload"));
+      return next(new Error("Unauthorized"));
     }
 
     // =========================
@@ -54,12 +49,13 @@ export const socketAuth = (socket, next) => {
       serviceProvider: payload.serviceProvider || null
     };
 
-    console.log("AUTH SUCCESS:", socket.user);
+    // ⚠️ avoid logging full user in production
+    // console.log("AUTH SUCCESS:", socket.user.id);
 
-    next();
+    return next();
 
   } catch (err) {
     console.error("SOCKET AUTH ERROR:", err.message);
-    return next(new Error("Socket authentication failed"));
+    return next(new Error("Unauthorized"));
   }
 };

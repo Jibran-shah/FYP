@@ -7,7 +7,7 @@ import * as bookingsService from "./bookings.service.js";
 export const createBooking = async (req, res) => {
   const result = await bookingsService.createBooking({
     buyerId: req.user.id,
-    ...req.validated.body
+    ...req.validated?.body
   });
 
   res.status(201).json({

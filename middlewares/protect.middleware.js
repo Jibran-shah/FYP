@@ -30,6 +30,8 @@ export const protect = ({
         serviceProvider: payload.serviceProvider || null
       };
 
+      console.log(req.user);
+
       /* ======================
          GUARDS
       ====================== */

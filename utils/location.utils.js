@@ -94,11 +94,7 @@ export const hasGeoLocation = (location) => {
 /**
  * Build MongoDB $near query
  */
-export const buildGeoNearQuery = (
-  lng,
-  lat,
-  radius
-) => {
+export const buildGeoNearQuery = (lng, lat, radius) => {
   const coordinates = buildCoordinates(lng, lat);
   const maxDistance = Number(radius);
 

@@ -114,7 +114,8 @@ serviceProviderSchema.index({
   "location.coordinates": "2dsphere",
 });
 
-export const ServiceProvider =  mongoose.model(
+
+export const ServiceProvider = mongoose.model.ServiceProvider || mongoose.model(
   "ServiceProvider",
   serviceProviderSchema
 );

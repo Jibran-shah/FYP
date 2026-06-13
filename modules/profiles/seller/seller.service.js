@@ -30,10 +30,9 @@ import {
   buildGeoNearQuery,
   isValidCoordinates
 } from "../../../utils/location.utils.js";
+import { normalizeId } from "../../../utils/normalizeModel.js";
 
-/* =========================================================
-   CREATE SELLER
-========================================================= */
+
 export const createSeller = async ({
   user,
   locationLn,
@@ -46,17 +45,31 @@ export const createSeller = async ({
   mediaContext
 }) => {
   const session = await mongoose.startSession();
-  session.startTransaction();
+
+  console.log("shopLogoFIle",shopLogoFile)
+
+  console.log("[createSeller] START", { userId: user?.id });
 
   try {
-    const existing = await ProductSeller.findOne({
-      user: user.id
-    }).session(session);
+    session.startTransaction();
 
-    if (existing) {
-      throw new BadRequestError("User already has a seller profile");
+    // ---------------------------
+    // 1. Validate user exists
+    // ---------------------------
+    const userDoc = await UserModel.findById(user.id).session(session);
+
+    console.log("[createSeller] User fetch:", {
+      exists: !!userDoc,
+      userId: userDoc?._id
+    });
+
+    if (!userDoc) {
+      throw new Error("User not found");
     }
 
+    // ---------------------------
+    // 2. Resolve media
+    // ---------------------------
     const [shopLogoAssetId] = await mediaService.resolve({
       files: shopLogoFile,
       fileIds: shopLogoId ? [shopLogoId] : [],
@@ -65,27 +78,57 @@ export const createSeller = async ({
       session
     });
 
+    console.log("[createSeller] Logo resolved:", shopLogoAssetId);
+
+    // ---------------------------
+    // 3. Build location
+    // ---------------------------
     const location = buildLocation(
       locationLn,
       locationLat,
       fullAddress
     );
 
-    const sellerArr = await ProductSeller.create(
-      [
-        {
+    console.log("[createSeller] Location built:", location);
+
+    // ---------------------------
+    // 4. Upsert seller (atomic)
+    // ---------------------------
+    const seller = await ProductSeller.findOneAndUpdate(
+      { user: user.id },
+      {
+        $setOnInsert: {
           user: user.id,
           shopName,
           shopDescription,
           shopLogo: shopLogoAssetId || null,
           ...(location && { location })
         }
-      ],
-      { session }
-    );
+      },
+      {
+        session,
+        upsert: true,
+        new: true,
+        runValidators: true,
+        returnDocument: "after"
+      }
+    ).populate({
+      path:"shopLogo",populate:{
+      path:"file"
+    }})
 
-    const seller = sellerArr[0];
+    console.log("[createSeller] Seller result:", {
+      exists: !!seller,
+      sellerId: seller?._id
+    });
 
+    if (!seller) {
+      throw new Error("Seller creation failed");
+    }
+
+    // ---------------------------
+    // 5. Sync role
+    // ---------------------------
     await syncRole({
       userId: user.id,
       role: PROFILE_ROLE_TYPES.PRODUCT_SELLER,
@@ -93,27 +136,90 @@ export const createSeller = async ({
       session
     });
 
-    const _user = await UserModel.findOneAndUpdate(
-      { _id: user.id },
-      { productSeller: seller._id },
-      { session, new: true }
-    );
+    console.log("[createSeller] Role synced");
 
+    // ---------------------------
+    // 6. Update user reference
+    // ---------------------------
+    userDoc.productSeller = seller._id;
+    await userDoc.save({ session });
+
+    console.log("[createSeller] User updated:", {
+      userId: userDoc._id,
+      productSeller: userDoc.productSeller
+    });
+
+    // ---------------------------
+    // 7. Generate tokens (SAFE PAYLOAD)
+    // ---------------------------
     const sessionId = refreshSessionSystem.generateId();
 
-    const accessToken = generateAccessToken({ user: _user });
-    const refreshToken = generateRefreshToken({ user: _user, sessionId });
+    const accessToken = generateAccessToken({
+      user: {
+        ...(userDoc.toObject() || userDoc),
+        productSeller: seller._id
+      }
+    });
 
-    await refreshSessionSystem.save(user.id, sessionId, refreshToken);
+    const refreshToken = generateRefreshToken({
+      user: { 
+        ...(userDoc.toObject() || userDoc),
+        productSeller:seller._id},
+      sessionId
+    });
 
+    console.log("[createSeller] Tokens generated:", {
+      sessionId,
+      accessToken: !!accessToken,
+      refreshToken: !!refreshToken
+    });
+
+    // ---------------------------
+    // 8. Save session
+    // ---------------------------
+    await refreshSessionSystem.save(
+      userDoc._id,
+      sessionId,
+      refreshToken
+    );
+
+    console.log("[createSeller] Session saved");
+
+    // ---------------------------
+    // 9. Commit transaction
+    // ---------------------------
     await session.commitTransaction();
 
-    return { seller, accessToken, refreshToken };
+    console.log("[createSeller] SUCCESS");
+
+    return {
+      seller: normalizeId(seller),
+      user: normalizeId(userDoc),
+      accessToken,
+      refreshToken
+    };
+
   } catch (err) {
+    console.error("[createSeller] ERROR:", {
+      message: err.message,
+      stack: err.stack
+    });
+
     await session.abortTransaction();
+
+    const error = parseMongoDuplicateError(err);
+    if (error) {
+      throw new ConflictError(
+        `${error.field} already exists`,
+        [{ field: error.field, message: error.message }]
+      );
+    }
+
     throw err;
+
   } finally {
-    session.endSession();
+    await session.endSession();
+    console.log("[createSeller] SESSION ENDED");
   }
 };
 
@@ -259,11 +365,91 @@ export const getAllSellers = async (filters = {}) => {
 /* =========================================================
    GET BY ID
 ========================================================= */
-export const getSellerById = (id) =>
-  ProductSeller.findById(id).populate("user");
+export const getSellerById = async(id) =>
+  await ProductSeller.findById(id).populate("user");
 
 /* =========================================================
    GET BY USER
 ========================================================= */
-export const getSellerByUser = (userId) =>
-  ProductSeller.findOne({ user: userId }).populate("user");
+export const getSellerByUser = async(userId) =>
+  await ProductSeller.findOne({ user: userId }).populate("user");
+
+export const deleteSellerById = async (_user) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    // ---------------------------
+    // 1. Fetch user
+    // ---------------------------
+    const userDoc = await UserModel.findById(_user.id).session(session);
+
+    if (!userDoc) {
+      throw new NotFoundError("User not found");
+    }
+
+    // ---------------------------
+    // 2. Validate seller exists
+    // ---------------------------
+    if (!userDoc.productSeller) {
+      throw new BadRequestError("User is not a product seller");
+    }
+
+    // ---------------------------
+    // 3. Delete seller
+    // ---------------------------
+    await ProductSeller.findByIdAndDelete(userDoc.productSeller).session(session);
+
+    // ---------------------------
+    // 4. Unlink from user
+    // ---------------------------
+    userDoc.productSeller = null;
+    await userDoc.save({ session });
+
+    // ---------------------------
+    // 5. Generate new session + tokens (same pattern as createSeller)
+    // ---------------------------
+    const sessionId = refreshSessionSystem.generateId();
+
+    const accessToken = generateAccessToken({
+      user: {
+        ...(userDoc.toObject() || userDoc),
+        productSeller: null
+      }
+    });
+
+    const refreshToken = generateRefreshToken({
+      user: {
+        ...(userDoc.toObject() || userDoc),
+        productSeller: null
+      },
+      sessionId
+    });
+
+    // ---------------------------
+    // 6. Save session
+    // ---------------------------
+    await refreshSessionSystem.save(
+      userDoc._id,
+      sessionId,
+      refreshToken
+    );
+
+    // ---------------------------
+    // 7. Commit
+    // ---------------------------
+    await session.commitTransaction();
+
+    return {
+      success: true,
+      accessToken,
+      refreshToken
+    };
+
+  } catch (err) {
+    await session.abortTransaction();
+    throw err;
+  } finally {
+    await session.endSession();
+  }
+};

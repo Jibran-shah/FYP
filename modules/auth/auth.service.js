@@ -66,14 +66,9 @@ export const register = async (userName, email, password) => {
   }
 
   const sessionId = refreshSessionSystem.generateId();
-
   const accessToken = generateAccessToken({user});
-
   const refreshToken = generateRefreshToken({user,sessionId});
-
-
   const ttl = parseExpiresToSeconds(AUTH_CONFIG.REFRESH_TOKEN.EXPIRY);
-
   await refreshSessionSystem.save(user._id, sessionId, refreshToken);
 
   await emailService.sendVerificationEmail({
@@ -98,7 +93,6 @@ export const login = async (userName,email, password) => {
   if(!email&&!userName) throw new UnauthorizedError("must provide either userName or email")
 
   let user;
-
   if (email)
     user = await User.findOne({ email }).select("+password")
   else if (userName)
@@ -116,23 +110,14 @@ export const login = async (userName,email, password) => {
   }
 
   const isMatch = await user.comparePassword(password);
-
   if (!isMatch) throw new UnauthorizedError("Invalid credentials");
 
   const sessionId = refreshSessionSystem.generateId();
-  
-
   const accessToken = generateAccessToken({ user });
-  
-
   const refreshToken = generateRefreshToken({ user , sessionId });
-
-  // 5️⃣ Store refresh token in Redis with TTL
   const ttl = parseExpiresToSeconds(process.env.JWT_REFRESH_EXPIRES);
-  
   await refreshSessionSystem.save(user._id, sessionId, refreshToken);
 
-  // 6️⃣ Return data
   return { user, accessToken, refreshToken};
 };
 
@@ -347,23 +332,32 @@ export const verifyEmailService = async (userId, token) => {
 
   user.isEmailVerified = true;
   await user.save();
-
-
   await emailVerificationStore.delete(userId);
-
   return true;
 };
 
 
 export const resendVerifyEmailService = async (userId) => {
+  console.log()
   const user = await User.findById(userId);
-
   if (!user) throw new NotFoundError("User Not found");
-  if (user.isEmailVerified) throw new BadRequestError("Email already verified");
-
+  //if (user.isEmailVerified) throw new BadRequestError("Email already verified");
   await emailService.sendVerificationEmail({
     to: user.email,
     name: user.userName,
     userId
   });
 };
+
+
+
+export const getUserByIdService = async (id) => {
+  const user = await User.findById(id);
+  return user;
+}
+
+
+export const getMeService = async (id) => {
+  const user = await User.findById(id);
+  return user;
+}

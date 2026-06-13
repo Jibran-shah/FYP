@@ -10,16 +10,11 @@ export const createProduct = async (req, res) => {
   const product = await productService.createProduct(
     {
       data: req.validated.body,
-
       user: req.user,
-
       sellerId: req.user.productSeller,
-
       categoryId: req.validated.body.category,
-
-      files: req.media?.images || [],
-
-      fileIds: req.validated.body.fileIds || []
+      files: req.media?.images,
+      fileIds: req.validated.body.fileIds
     },
     
     req.mediaContext?.images
