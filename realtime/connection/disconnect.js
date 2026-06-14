@@ -6,11 +6,10 @@ import { presenceSubscriptions } from "../utils/presenceSubscription.store.js";
  */
 export function registerDisconnect(io, socket, userId) {
 
-  // prevent duplicate binding (safe custom guard)
-  if (socket.__disconnectRegistered) return;
-  socket.__disconnectRegistered = true;
+  if (socket.data.disconnectRegistered) return;
+  socket.data.disconnectRegistered = true;
 
-  socket.on("disconnect", async () => {
+  socket.on("disconnect", async (reason) => {
     try {
 
       const { socketCount } = await presenceStore.removeSocket(
@@ -18,13 +17,17 @@ export function registerDisconnect(io, socket, userId) {
         socket.id
       );
 
-      // last socket → offline event
       if (socketCount === 0) {
-        presenceSubscriptions.emitOffline(io, userId);
+        presenceSubscriptions.emitOffline(io, userId, {
+          reason
+        });
       }
 
     } catch (err) {
-      console.error("Disconnect error:", err.message);
+      console.error(
+        `[Disconnect] user=${userId} socket=${socket.id}`,
+        err
+      );
     }
   });
 }

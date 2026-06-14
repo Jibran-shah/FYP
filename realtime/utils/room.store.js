@@ -72,9 +72,21 @@ class RoomStore {
   }
 
   async delete(roomId) {
-    await deleteKey(this.typeKey(roomId));
-    await deleteKey(this.membersKey(roomId));
+    await Promise.all([
+      deleteKey(this.typeKey(roomId)),
+      deleteKey(this.membersKey(roomId))
+    ]);
+
     return true;
+  }
+
+
+  async validateAccess(roomId, userId) {
+    if (!roomId || !userId) {
+      return false;
+    }
+
+    return this.isMember(roomId, userId);
   }
 }
 

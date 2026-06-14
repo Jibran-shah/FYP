@@ -14,6 +14,21 @@ import {
   updateEntityRatingOnReviewEdit
 } from "./reviews.utils.js";
 
+const reviewDeepPopulate = {
+  path:"user",
+  populate: {
+      path:"baseProfile",
+      populate:[
+        { 
+          path:"fullName"},
+        {
+          path:"profileAvatar",
+          populate:{
+            path:"file"}
+        }
+      ]
+  }
+}
 
 /* =========================================================
    CREATE REVIEW
@@ -112,32 +127,70 @@ export const getReviewByIdService = async (reviewId) => {
   return review;
 };
 
-
-/* =========================================================
-   GET REVIEWS FOR SPECIFIC ENTITY
-========================================================= */
 export const getEntityReviewsService = async ({
   entityType,
   entityId,
-  query
+  query,
+  userId,
 }) => {
   const {
     page = 1,
     limit = 10,
-    sort = "-createdAt"
+    sort = "-createdAt",
   } = query;
 
-  return await Review.find({
+  const pageNum = Number(page);
+  const limitNum = Number(limit);
+
+  // Fetch current user's review separately
+  let own = null;
+
+  if (userId) {
+    own = await Review.findOne({
+      entityType,
+      entityId,
+      user: userId,
+    }).populate(reviewDeepPopulate);
+  }
+
+  console.log(own);
+
+  // Build filter for other users' reviews
+  const filter = {
     entityType,
-    entityId
-  })
-    .populate("user", "name profileImage")
+    entityId,
+  };
+
+  if (userId) {
+    filter.user = { $ne: userId };
+  }
+
+  // Total reviews excluding own review
+  const total = await Review.countDocuments(filter);
+
+  const others = await Review.find(filter)
+    .populate(reviewDeepPopulate)
     .sort(sort)
-    .skip((page - 1) * limit)
-    .limit(Number(limit));
+    .skip((pageNum - 1) * limitNum)
+    .limit(limitNum);
+
+  const pages = Math.ceil(total / limitNum);
+
+  return {
+    own,
+
+    others,
+
+    pagination: {
+      page: pageNum,
+      limit: limitNum,
+      total,
+      pages,
+      hasNextPage: pageNum < pages,
+      hasPrevPage: pageNum > 1,
+    },
+  };
 };
-
-
 /* =========================================================
    GET MY REVIEWS
 ========================================================= */

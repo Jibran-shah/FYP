@@ -22,6 +22,7 @@ import {
   buildGeoNearQuery,
   isValidCoordinates
 } from "../../utils/location.utils.js";
+import { mediaPopulate, productSellerPopulate } from "../../populates/index.js";
 
 /* =========================================================
    CREATE PRODUCT (NEW MEDIA SYSTEM)
@@ -79,7 +80,10 @@ export const createProduct = async (payload, mediaContext = {}) => {
     ...(location && { location })
   };
 
-  return Product.create(productPayload);
+
+  const _product = Product.create(productPayload);
+
+  return await _product;
 };
 
 /* =========================================================
@@ -130,86 +134,97 @@ export const getProducts = async (query) => {
     minRatingCount,
     createdFrom,
     createdTo,
-    sort = "-createdAt",
-
-    lng,
-    lat,
-    radius = 50000
+    sort = "-createdAt"
   } = query;
 
   page = Math.max(Number(page), 1);
   limit = Math.min(Math.max(Number(limit), 1), 100);
 
-  const matchStage = {};
+  const filter = {};
 
-  /* =========================
-     BASIC FILTERS
-  ========================= */
-
-  if (status) matchStage.status = status;
+  if (status) filter.status = status;
 
   if (seller) {
     if (!isValidId(seller)) {
       throw new BadRequestError("Invalid seller id");
     }
-    matchStage.seller = seller;
+
+    filter.seller = seller;
   }
 
   if (inStock === true || inStock === "true") {
-    matchStage.quantityAvailable = { $gt: 0 };
+    filter.quantityAvailable = { $gt: 0 };
   }
 
   if (minRating !== undefined) {
-    matchStage.ratingAverage = { $gte: Number(minRating) };
+    filter.ratingAverage = {
+      $gte: Number(minRating)
+    };
   }
 
   if (minRatingCount !== undefined) {
-    matchStage.ratingCount = { $gte: Number(minRatingCount) };
+    filter.ratingCount = {
+      $gte: Number(minRatingCount)
+    };
   }
 
   if (createdFrom || createdTo) {
-    matchStage.createdAt = {};
-    if (createdFrom) matchStage.createdAt.$gte = new Date(createdFrom);
-    if (createdTo) matchStage.createdAt.$lte = new Date(createdTo);
+    filter.createdAt = {};
+
+    if (createdFrom) {
+      filter.createdAt.$gte = new Date(createdFrom);
+    }
+
+    if (createdTo) {
+      filter.createdAt.$lte = new Date(createdTo);
+    }
   }
 
-  /* =========================
-     PRICE FILTER
-  ========================= */
-  if (minPrice !== undefined || maxPrice !== undefined) {
-    matchStage.price = {};
-    if (minPrice !== undefined) matchStage.price.$gte = Number(minPrice);
-    if (maxPrice !== undefined) matchStage.price.$lte = Number(maxPrice);
+  if (
+    minPrice !== undefined ||
+    maxPrice !== undefined
+  ) {
+    filter.price = {};
+
+    if (minPrice !== undefined) {
+      filter.price.$gte = Number(minPrice);
+    }
+
+    if (maxPrice !== undefined) {
+      filter.price.$lte = Number(maxPrice);
+    }
   }
 
-  /* =========================
-     CATEGORY FILTER
-  ========================= */
   if (category) {
     const cat = await Category.findById(category);
-    if (!cat) throw new NotFoundError("Category not found");
+
+    if (!cat) {
+      throw new NotFoundError(
+        "Category not found"
+      );
+    }
 
     const safePath = escapeRegex(cat.path);
-    matchStage.categoryPath = { $regex: `^${safePath}` };
+
+    filter.categoryPath = {
+      $regex: `^${safePath}`
+    };
   }
 
   if (categoryPath) {
-    matchStage.categoryPath = {
+    filter.categoryPath = {
       $regex: escapeRegex(categoryPath),
       $options: "i"
     };
   }
 
-  /* =========================
-     TEXT SEARCH (FALLBACK)
-  ========================= */
   if (search) {
     const tokens = search
       .trim()
       .split(/\s+/)
       .filter(Boolean);
 
-    matchStage.$or = [
+    filter.$or = [
       {
         name: {
           $regex: tokens.join("|"),
@@ -231,84 +246,17 @@ export const getProducts = async (query) => {
     ];
   }
 
-  /* =========================
-     GEO + AGGREGATION PIPELINE
-  ========================= */
+  const [products, total] = await Promise.all([
+    Product.find(filter)
+      .populate(productSellerPopulate)
+      .populate("category")
+      .populate(mediaPopulate)
+      .sort(sort)
+      .skip((page - 1) * limit)
+      .limit(limit),
 
-  const hasGeo = lng !== undefined && lat !== undefined;
-
-  const pipeline = [];
-
-  // 1. GEO STAGE (must be FIRST if used)
-  if (hasGeo) {
-    pipeline.push({
-      $geoNear: {
-        near: {
-          type: "Point",
-          coordinates: buildCoordinates(lng, lat)
-        },
-        distanceField: "distance",
-        maxDistance: Number(radius),
-        spherical: true,
-        query: matchStage // IMPORTANT: merge filters here
-      }
-    });
-  } else {
-    // if no geo, start with match
-    pipeline.push({ $match: matchStage });
-  }
-
-  // 2. SORT
-  const sortStage = {};
-  const sortField = sort.replace("-", "");
-  const sortDir = sort.startsWith("-") ? -1 : 1;
-
-  sortStage[sortField] = sortDir;
-
-  // optional: if geo exists, distance priority can be added
-  if (hasGeo) {
-    sortStage.distance = 1;
-  }
-
-  pipeline.push({ $sort: sortStage });
-
-  // 3. PAGINATION
-  pipeline.push({ $skip: (page - 1) * limit });
-  pipeline.push({ $limit: limit });
-
-  // 4. POPULATE (via lookup alternative)
-  pipeline.push(
-    {
-      $lookup: {
-        from: "productsellers",
-        localField: "seller",
-        foreignField: "_id",
-        as: "seller"
-      }
-    },
-    {
-      $lookup: {
-        from: "categories",
-        localField: "category",
-        foreignField: "_id",
-        as: "category"
-      }
-    },
-    {
-      $unwind: "$seller"
-    },
-    {
-      $unwind: "$category"
-    }
-  );
-
-  /* =========================
-     EXECUTE
-  ========================= */
-
-  const products = await Product.aggregate(pipeline);
-
-  const total = await Product.countDocuments(matchStage);
+    Product.countDocuments(filter)
+  ]);
 
   return {
     data: products,
@@ -327,13 +275,14 @@ export const getProducts = async (query) => {
 export const getProductsBySeller = async (
   seller
 ) => {
-  if (!isValidId(sellerId)) {
+  if (!isValidId(seller)) {
     throw new BadRequestError("Invalid seller id");
   }
 
   return Product.find({seller})
     .sort("-createdAt")
-    .populate("category", "name");
+    .populate("category", "name")
+    .populate(mediaPopulate);
 };
 
 /* =========================================================
@@ -358,7 +307,8 @@ export const getByCategory = async (
     categoryPath: { $regex: `^${safePath}` }
   })
     .sort("-createdAt")
-    .populate("seller", "name");
+    .populate("seller", "name")
+    .populate(mediaPopulate);
 };
 
 /* =========================================================
@@ -372,9 +322,9 @@ export const getProductById = async (
   }
 
   const product = await Product.findById(productId)
-    .populate("seller", "name email")
+    .populate(productSellerPopulate)
     .populate("category", "name")
-    .populate("images");
+    .populate(mediaPopulate);
 
   if (!product) {
     throw new NotFoundError("Product not found");
@@ -442,8 +392,9 @@ export const updateProduct = async ({
 
   Object.assign(product, data);
 
-  await product.save();
-  return product;
+  const _product = await product.save();
+  Product.findById(product._id).populate(mediaPopulate)
+  return _product;
 };
 
 /* =========================================================

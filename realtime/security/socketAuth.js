@@ -3,45 +3,31 @@ import { verifyAccessToken } from "../../utils/token.utils.js";
 
 export const socketAuth = (socket, next) => {
   try {
-    let token = null;
-
-    // =========================
-    // 1. PRIORITY: AUTH FIRST (best practice)
-    // =========================
-    token =
+    let token =
       socket.handshake.auth?.token ||
       socket.handshake.headers?.authorization?.split(" ")[1];
 
-    // =========================
-    // 2. COOKIE FALLBACK
-    // =========================
     if (!token && socket.handshake.headers?.cookie) {
       const parsed = cookie.parse(socket.handshake.headers.cookie);
       token = parsed.accessToken || parsed.token;
     }
 
-    // =========================
-    // 3. VALIDATION
-    // =========================
     if (!token || typeof token !== "string") {
-      return next(new Error("Unauthorized"));
-    }
-
-    // normalize bearer
-    if (token.startsWith("Bearer ")) {
-      token = token.slice(7);
+      const err = new Error("Unauthorized");
+      err.data = { code: "AUTH_FAILED" };
+      return next(err);
     }
 
     const payload = verifyAccessToken(token);
 
     if (!payload?.userId) {
-      return next(new Error("Unauthorized"));
+      const err = new Error("Unauthorized");
+      err.data = { code: "INVALID_TOKEN" };
+      return next(err);
     }
 
-    // =========================
-    // 4. ATTACH USER
-    // =========================
-    socket.user = {
+
+    socket.data.user = {
       id: payload.userId,
       role: payload.role,
       baseProfile: payload.baseProfile || null,
@@ -49,13 +35,13 @@ export const socketAuth = (socket, next) => {
       serviceProvider: payload.serviceProvider || null
     };
 
-    // ⚠️ avoid logging full user in production
-    // console.log("AUTH SUCCESS:", socket.user.id);
+    console.log(socket.data.user)
 
-    return next();
+    next();
 
   } catch (err) {
-    console.error("SOCKET AUTH ERROR:", err.message);
-    return next(new Error("Unauthorized"));
+    const error = new Error("Unauthorized");
+    error.data = { code: "AUTH_FAILED" };
+    return next(error);
   }
 };

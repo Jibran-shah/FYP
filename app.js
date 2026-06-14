@@ -111,7 +111,7 @@ const startServer = async () => {
 
     app.use(BASE_ROOT + "/chat/direct", directChatRoutes);
     app.use(BASE_ROOT + "/chat/group", groupChatRoutes);
-    app.use(BASE_ROOT + "/chat/messages", messagesRoutes);
+    app.use(BASE_ROOT + "/messages", messagesRoutes);
 
     app.use(BASE_ROOT + "/categories", categoryRoutes);
 
@@ -135,13 +135,6 @@ const startServer = async () => {
     // ERROR HANDLER (LAST)
     // =====================================================
     app.use(errorHandler);
-
-    // =====================================================
-    // START LISTENING
-    // =====================================================
-    app.listen(PORT, () => {
-      logger.info(`Server running on port ${PORT}`);
-    });
 
   } catch (err) {
     logger.error(err);

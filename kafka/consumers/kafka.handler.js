@@ -13,6 +13,7 @@ export async function handleKafkaBatch(topic, events) {
 
   switch (topic) {
     case EVENTS.CHAT.MESSAGE_SEND:
+      console.log("message send consumer called")
       return messageSendConsumer(events);
     case EVENTS.CHAT.MESSAGE_DELIVERED:
       return messageDeliveredConsumer(events);

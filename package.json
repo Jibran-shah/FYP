@@ -12,6 +12,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@sfpy/node-core": "^0.3.5",
     "@socket.io/redis-adapter": "^8.3.0",
     "bcrypt": "^6.0.0",
     "bcryptjs": "^3.0.3",
@@ -30,9 +31,11 @@
     "morgan": "^1.10.1",
     "multer": "^2.1.1",
     "nodemailer": "^8.0.5",
+    "npm": "^11.17.0",
     "redis": "^5.12.1",
     "slugify": "^1.6.9",
     "socket.io": "^4.8.3",
+    "update": "^0.7.4",
     "uuid": "^14.0.0",
     "winston": "^3.19.0",
     "winston-daily-rotate-file": "^5.0.0"

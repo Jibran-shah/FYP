@@ -7,8 +7,7 @@ const HOST = "0.0.0.0";
 
 const server = http.createServer(app);
 
-// attach websocket layer
-initSocket(server);
+await initSocket(server);
 
 server.listen(PORT, HOST, () => {
   console.log(`Server running on ${HOST}:${PORT}`);

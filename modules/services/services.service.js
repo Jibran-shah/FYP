@@ -10,9 +10,6 @@ import {
   UnauthorizedError
 } from "../../errors/index.js";
 
-/* =========================
-   LOCATION UTILS
-========================= */
 import {
   buildLocation,
   buildGeoNearQuery
@@ -20,6 +17,22 @@ import {
 import {
   ServiceProvider
 } from "../../models/ServiceProvider.model.js";
+
+export const serviceDeepPopulate = {
+  path: "provider",
+  populate: {
+    path: "user",
+    populate: {
+      path: "baseProfile",
+      populate:{
+        path:"profileAvatar",
+        populate:{
+          path:"file"
+        }
+      }
+    }
+  }
+};
 
 /* =========================================================
    CREATE SERVICE
@@ -52,7 +65,7 @@ export const createService = async (data) => {
     category: category._id,
     categoryPath: category.path,
     location
-  });
+  }).populate(serviceDeepPopulate);
 
   return service;
 };
@@ -70,13 +83,49 @@ export const getServices = async (query) => {
     sort = "-createdAt",
     locationLn,
     locationLat,
-    radius
+    radius,
+    search // ✅ ADDED
   } = query;
 
   page = Math.max(Number(page), 1);
   limit = Math.min(Math.max(Number(limit), 1), 100);
 
   const filter = {};
+
+  /* =========================
+     FUZZY SEARCH (name + description)
+  ========================= */
+  if (search && search.trim()) {
+    const escaped = escapeRegex(search.trim());
+
+    // split words for better fuzzy matching
+    const words = escaped.split(/\s+/).filter(Boolean);
+
+    filter.$or = [
+      // full phrase match (best score)
+      {
+        name: {
+          $regex: escaped,
+          $options: "i"
+        }
+      },
+      {
+        description: {
+          $regex: escaped,
+          $options: "i"
+        }
+      },
+
+      // word-level fallback (handles typos / partial matches)
+      ...words.map((word) => ({
+        name: { $regex: word, $options: "i" }
+      })),
+
+      ...words.map((word) => ({
+        description: { $regex: word, $options: "i" }
+      }))
+    ];
+  }
 
   /* =========================
      PRICE FILTER
@@ -140,7 +189,8 @@ export const getServices = async (query) => {
       .skip((page - 1) * limit)
       .limit(limit)
       .populate("provider", "name")
-      .populate("category", "name"),
+      .populate("category", "name")
+      .populate(serviceDeepPopulate),
 
     Service.countDocuments(finalQuery)
   ]);
@@ -164,7 +214,8 @@ export const getServicesByProvider = async (provider) => {
 
   return await Service.find({ provider })
     .sort("-createdAt")
-    .populate("category", "name");
+    .populate("category", "name")
+    .populate(serviceDeepPopulate);
 };
 
 /* =========================================================
@@ -187,7 +238,8 @@ export const getByCategory = async (categoryId) => {
     categoryPath: { $regex: `^${safePath}` }
   })
     .sort("-createdAt")
-    .populate("provider", "name");
+    .populate("provider", "name")
+    .populate(serviceDeepPopulate);
 };
 
 export const getServiceById = async (serviceId) => {
@@ -197,7 +249,8 @@ export const getServiceById = async (serviceId) => {
 
   const service = await Service.findById(serviceId)
     .populate("provider", "name email")
-    .populate("category", "name");
+    .populate("category", "name")
+    .populate(serviceDeepPopulate);
 
   if (!service) {
     throw new NotFoundError("Service not found");
@@ -248,7 +301,9 @@ export const updateService = async ({
   Object.assign(service, data);
 
   await service.save();
-  return service;
+  const _service = Service.findById(service._id)
+  .populate(serviceDeepPopulate);
+  return _service;
 };
 
 

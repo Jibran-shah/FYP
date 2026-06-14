@@ -55,4 +55,4 @@ cartSchema.pre("save", function () {
   );
 });
 
-export const Cart = model("Cart", cartSchema);
+export const Cart =mongoose.models.Cart || model("Cart", cartSchema);

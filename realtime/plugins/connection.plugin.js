@@ -2,48 +2,80 @@ import { handlePresence } from "../connection/presence.js";
 import { hydrateUserRooms } from "../connection/hydrateRooms.js";
 import { registerDisconnect } from "../connection/disconnect.js";
 
-export function connectionPlugin(io, socket) {
+export async function connectionPlugin(io, socket) {
+  const userId = socket?.data?.user?.id;
+  
+  console.log(
+    `[ConnectionPlugin] Init → socket=${socket.id}, user=${userId}`
+  );
 
-  const userId = socket.user.id;
+  socket.data.ready = false;
 
-  let isAlive = true;
+  try {
 
-  // mark socket death on disconnect
-  socket.on("disconnect", () => {
-    isAlive = false;
-  });
+    console.log(
+      `[ConnectionPlugin] Initializing presence → user=${userId}`
+    );
 
-  // -----------------------------
-  // PRESENCE
-  // -----------------------------
-  handlePresence(io, socket, userId);
+    await handlePresence(io, socket, userId);
 
-  // -----------------------------
+    console.log(
+      `[ConnectionPlugin] Presence initialized → user=${userId}`
+    );
+  } catch (err) {
+    console.error(
+      `[ConnectionPlugin] Presence init failed → user=${userId}:`,
+      err
+    );
+  }
+
+  // --------------------------------
   // ROOM HYDRATION
-  // -----------------------------
-  hydrateUserRooms(userId)
-    .then((rooms) => {
+  // --------------------------------
+  try {
+    console.log(
+      `[ConnectionPlugin] Hydrating rooms → user=${userId}`
+    );
 
-      if (!isAlive) return;
+    const rooms = await hydrateUserRooms(userId);
 
-      rooms.forEach(roomId => {
-        if (isAlive) socket.join(roomId);
-      });
+    if (socket.disconnected) {
+      console.log(
+        `[ConnectionPlugin] Socket disconnected during hydration → user=${userId}`
+      );
+      return;
+    }
 
-      if (!isAlive) return;
+    for (const roomId of rooms) {
+      socket.join(roomId);
+    }
 
-      socket.emit("connection.ready", {
-        userId,
-        roomsCount: rooms.length,
-        timestamp: Date.now()
-      });
-    })
-    .catch(err => {
-      console.error("Room hydration error:", err.message);
+    socket.data.ready = true;
+
+    socket.emit("connection.ready", {
+      userId,
+      roomsCount: rooms.length,
+      timestamp: Date.now()
     });
 
-  // -----------------------------
-  // DISCONNECT BINDING
-  // -----------------------------
+    console.log(
+      `[ConnectionPlugin] connection.ready emitted → user=${userId}`
+    );
+
+  } catch (err) {
+    console.error(
+      `[ConnectionPlugin] Room hydration failed → user=${userId}:`,
+      err
+    );
+
+    socket.emit("connection.failed", {
+      reason: "ROOM_HYDRATION_FAILED",
+      timestamp: Date.now()
+    });
+  }
+
+  // --------------------------------
+  // SINGLE SOURCE OF TRUTH
+  // --------------------------------
   registerDisconnect(io, socket, userId);
 }

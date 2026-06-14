@@ -78,7 +78,7 @@ userSchema.pre("save", async function () {
   this.password = await bcrypt.hash(this.password, AUTH_CONFIG.BCRYPT.SALT_ROUNDS);
 });
 
-const User = mongoose.model.User || mongoose.model(
+const User = mongoose.models.User || mongoose.model(
   "User",
   userSchema
 );

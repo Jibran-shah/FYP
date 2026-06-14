@@ -60,10 +60,15 @@ export const updateServiceSchema = Joi.object({
 }).min(1);
 
 export const serviceQuerySchema = Joi.object({
+  search: Joi.string().trim().allow("").optional(),
+
   page: Joi.number()
     .integer()
     .min(1)
-    .default(1),
+    .default(1)
+    .messages({
+      "number.base": "page must be a number"
+    }),
 
   limit: Joi.number()
     .integer()
@@ -71,31 +76,48 @@ export const serviceQuerySchema = Joi.object({
     .max(100)
     .default(10),
 
-  minPrice: Joi.number().min(0),
+  minPrice: Joi.number()
+    .min(0)
+    .allow("")
+    .optional(),
 
-  maxPrice: Joi.number().min(0),
+  maxPrice: Joi.number()
+    .min(0)
+    .allow("")
+    .optional(),
 
-  category: mongoIdSchema.optional(),
+  category: mongoIdSchema.allow("").optional(),
 
-  provider: mongoIdSchema.optional(),
+  provider: mongoIdSchema.allow("").optional(),
 
   status: Joi.string()
-    .valid(...SERVICE_STATUS_ARRAY),
+    .valid(...SERVICE_STATUS_ARRAY)
+    .allow("")
+    .optional(),
 
-  categoryPath: Joi.string().trim(),
+  categoryPath: Joi.string()
+    .trim()
+    .allow("")
+    .optional(),
 
   /* GEO SEARCH */
   locationLat: Joi.number()
     .min(-90)
-    .max(90),
+    .max(90)
+    .allow("")
+    .optional(),
 
   locationLn: Joi.number()
     .min(-180)
-    .max(180),
+    .max(180)
+    .allow("")
+    .optional(),
 
   radius: Joi.number()
     .min(1)
-    .max(500000),
+    .max(500000)
+    .allow("")
+    .optional(),
 
   sort: Joi.string()
     .valid(
@@ -107,7 +129,11 @@ export const serviceQuerySchema = Joi.object({
       "-ratingAverage"
     )
     .default("-createdAt")
-}).with("minPrice", "maxPrice");
+})
+.options({
+  convert: true,        // 👈 IMPORTANT (string → number auto conversion)
+  stripUnknown: true    // 👈 removes junk query params safely
+});
 
 
 

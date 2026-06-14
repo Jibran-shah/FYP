@@ -12,6 +12,7 @@ import { protect} from "../../../middlewares/protect.middleware.js";
 import {mediaContext} from "../../../middlewares/mediaContext.middlware.js"
 import { FILE_MAX_SIZES, MEDIA_USAGE_TYPES, NAMESPACES } from "../../../constants/media.constants.js";
 import { createUpload } from "../../../middlewares/upload.middleware.js";
+import { asyncHandler } from "../../../utils/asyncHandler.js";
 
 
 const router = express.Router();
@@ -103,7 +104,7 @@ router.get(
   "/full/:id",
   protect(),
   validate(fullProfileSchema, "params"),
-  profileController.getFullProfile
+  asyncHandler(profileController.getFullProfile)
 );
 
 export default router;

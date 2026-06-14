@@ -115,7 +115,7 @@ serviceProviderSchema.index({
 });
 
 
-export const ServiceProvider = mongoose.model.ServiceProvider || mongoose.model(
+export const ServiceProvider = mongoose.models.ServiceProvider || mongoose.model(
   "ServiceProvider",
   serviceProviderSchema
 );

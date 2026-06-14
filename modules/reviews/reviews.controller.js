@@ -59,16 +59,21 @@ export const getReviewById = asyncHandler(async (req, res) => {
 export const getEntityReviews = asyncHandler(async (req, res) => {
   const { entityType, entityId } = req.params;
 
-  const reviews = await getEntityReviewsService({
+  const {own,others,meta} = await getEntityReviewsService({
     entityType,
     entityId,
-    query: req.query
+    query: req.validated?.query,
+    userId:req.user?.id
   });
 
   res.status(200).json({
     success: true,
-    count: reviews.length,
-    reviews
+    count: others.length+(own?1:0),
+    data:{
+      own,
+      others,
+      meta
+    }
   });
 });
 
@@ -93,7 +98,7 @@ export const getMyReviews = asyncHandler(async (req, res) => {
 export const updateReview = asyncHandler(async (req, res) => {
   const updatedReview = await updateReviewService({
     reviewId: req.params.id,
-    userId: req.user.userId,
+    userId: req.user?.id,
     updateData: req.body
   });
 

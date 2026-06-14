@@ -41,8 +41,9 @@ router.get(
 // Get reviews for specific entity
 router.get(
    "/entity/:entityType/:entityId", 
+   protect(),
    validate(entityReviewParamsSchema,"params"), 
-   validate(reviewQuerySchema), 
+   validate(reviewQuerySchema,"query"), 
    asyncHandler(getEntityReviews)
 );
 

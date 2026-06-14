@@ -6,7 +6,7 @@ BASE AUTH GUARD
 =====================================================
 */
 export const requireAuth = (socket) => {
-  if (!socket.user?.id) {
+  if (!socket.data?.user?.id) {
     throw new UnauthorizedError("Authentication required");
   }
 };
@@ -20,7 +20,7 @@ export const requireRole = (roles = []) => {
   return (socket) => {
     requireAuth(socket);
 
-    if (!roles.includes(socket.user.role)) {
+    if (!roles.includes(socket.data?.user?.role)) {
       throw new ForbiddenError("Insufficient permissions");
     }
   };
@@ -34,7 +34,7 @@ PROFILE GUARDS
 export const requireBaseProfile = (socket) => {
   requireAuth(socket);
 
-  if (!socket.user.baseProfile) {
+  if (!socket.data?.user?.baseProfile) {
     throw new ForbiddenError("Base profile required");
   }
 };
@@ -42,7 +42,7 @@ export const requireBaseProfile = (socket) => {
 export const requireSellerProfile = (socket) => {
   requireAuth(socket);
 
-  if (!socket.user.productSeller) {
+  if (!socket.data?.user?.productSeller) {
     throw new ForbiddenError("Product seller profile required");
   }
 };
@@ -50,7 +50,7 @@ export const requireSellerProfile = (socket) => {
 export const requireServiceProviderProfile = (socket) => {
   requireAuth(socket);
 
-  if (!socket.user.serviceProvider) {
+  if (!socket.data?.user?.serviceProvider) {
     throw new ForbiddenError("Service provider profile required");
   }
 };
@@ -64,9 +64,9 @@ export const requireAnyProfile = (socket) => {
   requireAuth(socket);
 
   if (
-    !socket.user.baseProfile &&
-    !socket.user.productSeller &&
-    !socket.user.serviceProvider
+    !socket.data?.user?.baseProfile &&
+    !socket.data?.user?.productSeller &&
+    !socket.data?.user?.serviceProvider
   ) {
     throw new ForbiddenError("User profile required");
   }
@@ -76,8 +76,8 @@ export const requireSellerOrProvider = (socket) => {
   requireAuth(socket);
 
   if (
-    !socket.user.productSeller &&
-    !socket.user.serviceProvider
+    !socket.data?.user?.productSeller &&
+    !socket.data?.user?.serviceProvider
   ) {
     throw new ForbiddenError(
       "Seller or service provider profile required"

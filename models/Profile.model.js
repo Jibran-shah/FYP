@@ -62,6 +62,6 @@ const profileSchema = new mongoose.Schema(
   }
 );
 
-const Profile = mongoose.model.Profile || mongoose.model(MODELS.PROFILE, profileSchema);
+const Profile = mongoose.models.Profile || mongoose.model(MODELS.PROFILE, profileSchema);
 
 export default Profile;

@@ -51,22 +51,38 @@ export const sendMessage = async ({
   return message;
 };
 
-/* =========================
-   GET CHAT MESSAGES
-========================= */
 export const getChatMessages = async ({
   chatId,
   page = 1,
-  limit = 20
+  limit = 20,
 }) => {
   const skip = (page - 1) * limit;
 
-  return Message.find({ chatId, isDeleted: false })
-    .populate("senderId", "name email")
-    .populate("media")
-    .sort({ createdAt: -1 })
-    .skip(skip)
-    .limit(Number(limit));
+  const [messages, totalMessages] = await Promise.all([
+    Message.find({ chatId, isDeleted: false })
+      .populate("senderId", "name email")
+      .populate("media")
+      .sort({ createdAt: -1 }) // newest first for pagination correctness
+      .skip(skip)
+      .limit(Number(limit)),
+
+    Message.countDocuments({ chatId, isDeleted: false }),
+  ]);
+
+  const totalPages = Math.ceil(totalMessages / limit);
+
+  return {
+    messages: messages.reverse(), // 👈 convert to older → newer
+    meta: {
+      page: Number(page),
+      limit: Number(limit),
+      skip,
+      totalMessages,
+      totalPages,
+      hasNextPage: page < totalPages,
+      hasPrevPage: page > 1,
+    },
+  };
 };
 
 /* =========================

@@ -101,6 +101,6 @@ productSellerSchema.index({
   "location.coordinates": "2dsphere"
 });
 
-const ProductSeller = mongoose.model.ProductSeller || mongoose.model("ProductSeller", productSellerSchema);
+const ProductSeller = mongoose.models.ProductSeller || mongoose.model("ProductSeller", productSellerSchema);
 
 export default ProductSeller;

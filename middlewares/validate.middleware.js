@@ -8,8 +8,6 @@ export const validate = (schema, property = "body") => {
     console.log("📦 Raw req.query:", req.query);
     console.log("📦 Raw req.params:", req.params);
 
-    console.log(schema)
-
     const payload = req[property];
 
     // 🚨 HARD BLOCK undefined / null

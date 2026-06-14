@@ -1,9 +1,11 @@
 import { roomStore } from "../utils/room.store.js";
 
 export async function canAccessRoom(socket, roomId) {
-  const userId = socket.user.id;
+  const userId = socket.data?.user?.id;
 
-  const typeModel = socket.roomsMeta?.[roomId] || "DIRECT_CHAT";
+  if (!roomId) {
+    return false;
+  }
 
-  return roomStore.validateAccess(roomId, userId, typeModel);
+  return roomStore.validateAccess(roomId, userId);
 }

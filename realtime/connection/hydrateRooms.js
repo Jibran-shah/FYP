@@ -18,17 +18,17 @@ export async function hydrateUserRooms(userId) {
     isDeleted: false
   }).select("_id participants");
 
-  for (const chat of directChats) {
+  const directRoomTasks = directChats.map(async (chat) => {
     const roomId = chat._id.toString();
 
     roomIds.push(roomId);
 
-    await roomStore.create({
+    return roomStore.create({
       roomId,
       type: "DIRECT_CHAT",
       members: chat.participants.map(String)
     });
-  }
+  });
 
   // -----------------------------
   // GROUP CHATS
@@ -38,7 +38,7 @@ export async function hydrateUserRooms(userId) {
     isDeleted: false
   }).select("_id members");
 
-  for (const group of groupChats) {
+  const groupRoomTasks = groupChats.map(async (group) => {
     const roomId = group._id.toString();
 
     const members = group.members
@@ -47,12 +47,18 @@ export async function hydrateUserRooms(userId) {
 
     roomIds.push(roomId);
 
-    await roomStore.create({
+    return roomStore.create({
       roomId,
       type: "GROUP_CHAT",
       members
     });
-  }
+  });
+
+  // Run everything in parallel
+  await Promise.all([
+    ...directRoomTasks,
+    ...groupRoomTasks
+  ]);
 
   return roomIds;
 }

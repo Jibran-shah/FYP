@@ -37,7 +37,7 @@ export const addToCart = async (req, res) => {
 export const updateCartItem = async (req, res) => {
   const result = await cartService.updateCartItem({
     userId: req.user.id,
-    ...req.validated.body
+    ...req.validated?.body
   });
 
   res.status(200).json({

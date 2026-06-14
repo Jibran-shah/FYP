@@ -35,7 +35,8 @@ const messageSchema = new Schema(
     chatModel: {
       type: String,
       required: true,
-      enum: ["DirectChat", "GroupChat"]
+      enum: ["DirectChat", "GroupChat"],
+      default: "DirectChat"
     },
 
     /* =========================
@@ -46,6 +47,15 @@ const messageSchema = new Schema(
       ref: MODELS.USER,
       required: true,
       index: true
+    },
+
+    /* =========================
+       TEMP ID (CLIENT TRACKING + DEDUPE)
+    ========================= */
+    tempId: {
+      type: String,
+      index: true,
+      sparse: true
     },
 
     /* =========================
@@ -69,7 +79,7 @@ const messageSchema = new Schema(
     },
 
     /* =========================
-       MEDIA (simple array of asset ids)
+       MEDIA
     ========================= */
     media: [
       {
@@ -88,7 +98,7 @@ const messageSchema = new Schema(
     },
 
     /* =========================
-       STATUS TRACKING (SIMPLE)
+       STATUS TRACKING
     ========================= */
     deliveredAt: [
       {
@@ -121,7 +131,7 @@ const messageSchema = new Schema(
     editedAt: Date,
 
     /* =========================
-       DELETION (optional but useful)
+       DELETION
     ========================= */
     isDeleted: {
       type: Boolean,
@@ -140,6 +150,7 @@ const messageSchema = new Schema(
 messageSchema.index({ chatId: 1, createdAt: -1 });
 messageSchema.index({ senderId: 1, createdAt: -1 });
 messageSchema.index({ replyTo: 1 });
+messageSchema.index({ tempId: 1 }); // IMPORTANT
 
 /* =========================
    VALIDATION RULES
@@ -150,7 +161,7 @@ messageSchema.pre("validate", function (next) {
 
   const mediaTypes = ["image", "video", "audio", "file"];
 
-  // TEXT / SYSTEM must have text or media
+  // TEXT / SYSTEM must have content
   if (this.type === "text" || this.type === "system") {
     if (!hasText && !hasMedia) {
       return next(new Error("Message must contain text or media"));
@@ -167,4 +178,8 @@ messageSchema.pre("validate", function (next) {
   next();
 });
 
-export const Message = model(MODELS.MESSAGE, messageSchema);
+/* =========================
+   EXPORT MODEL
+========================= */
+export const Message =
+  mongoose.models.Message || model(MODELS.MESSAGE, messageSchema);

@@ -18,7 +18,7 @@ import {
  */
 export function registerChatEvents(io, socket) {
 
-  console.log("📡 Chat events registered:", socket.id);
+  console.log("📡 [CHAT] Events registered for socket:", socket.id);
 
   /*
   =====================================================
@@ -29,7 +29,16 @@ export function registerChatEvents(io, socket) {
     socket,
     EVENTS.CHAT.ROOM_JOIN,
     [requireAuth],
-    (socket, payload) => handleRoomJoin(socket, payload)
+    async (socket, payload) => {
+      console.log("➡️ [ROOM_JOIN] event received");
+      console.log("🔹 socket:", socket.id);
+      console.log("🔹 payload:", payload);
+
+      const result = await handleRoomJoin(socket, payload);
+
+      console.log("✅ [ROOM_JOIN] completed");
+      return result;
+    }
   );
 
   /*
@@ -41,7 +50,16 @@ export function registerChatEvents(io, socket) {
     socket,
     EVENTS.CHAT.ROOM_LEAVE,
     [requireAuth],
-    (socket, payload) => handleRoomLeave(socket, payload)
+    async (socket, payload) => {
+      console.log("⬅️ [ROOM_LEAVE] event received");
+      console.log("🔹 socket:", socket.id);
+      console.log("🔹 payload:", payload);
+
+      const result = await handleRoomLeave(socket, payload);
+
+      console.log("✅ [ROOM_LEAVE] completed");
+      return result;
+    }
   );
 
   /*
@@ -53,7 +71,16 @@ export function registerChatEvents(io, socket) {
     socket,
     EVENTS.CHAT.MESSAGE_SEND,
     [requireAuth],
-    (socket, payload) => handleMessageSend(io, socket, payload)
+    async (socket, payload) => {
+      console.log("💬 [MESSAGE_SEND] event received");
+      console.log("🔹 socket:", socket.id);
+      console.log("🔹 payload:", payload);
+
+      const result = await handleMessageSend(io, socket, payload);
+
+      console.log("✅ [MESSAGE_SEND] completed");
+      return result;
+    }
   );
 
   /*
@@ -65,7 +92,16 @@ export function registerChatEvents(io, socket) {
     socket,
     EVENTS.CHAT.MESSAGE_DELIVERED,
     [requireAuth],
-    (socket, payload) => handleMessageDelivered(socket, payload)
+    async (socket, payload) => {
+      console.log("📦 [MESSAGE_DELIVERED] event received");
+      console.log("🔹 socket:", socket.id);
+      console.log("🔹 payload:", payload);
+
+      const result = await handleMessageDelivered(socket, payload);
+
+      console.log("✅ [MESSAGE_DELIVERED] completed");
+      return result;
+    }
   );
 
   /*
@@ -77,7 +113,16 @@ export function registerChatEvents(io, socket) {
     socket,
     EVENTS.CHAT.MESSAGE_READ,
     [requireAuth],
-    (socket, payload) => handleMessageRead(socket, payload)
+    async (socket, payload) => {
+      console.log("👀 [MESSAGE_READ] event received");
+      console.log("🔹 socket:", socket.id);
+      console.log("🔹 payload:", payload);
+
+      const result = await handleMessageRead(socket, payload);
+
+      console.log("✅ [MESSAGE_READ] completed");
+      return result;
+    }
   );
 
   /*
@@ -89,7 +134,16 @@ export function registerChatEvents(io, socket) {
     socket,
     EVENTS.CHAT.TYPING_START,
     [requireAuth],
-    (socket, payload) => handleTypingStart(socket, payload)
+    async (socket, payload) => {
+      console.log("⌨️ [TYPING_START] event received");
+      console.log("🔹 socket:", socket.id);
+      console.log("🔹 payload:", payload);
+
+      const result = await handleTypingStart(socket, payload);
+
+      console.log("✅ [TYPING_START] completed");
+      return result;
+    }
   );
 
   /*
@@ -101,6 +155,15 @@ export function registerChatEvents(io, socket) {
     socket,
     EVENTS.CHAT.TYPING_STOP,
     [requireAuth],
-    (socket, payload) => handleTypingStop(socket, payload)
+    async (socket, payload) => {
+      console.log("🛑 [TYPING_STOP] event received");
+      console.log("🔹 socket:", socket.id);
+      console.log("🔹 payload:", payload);
+
+      const result = await handleTypingStop(socket, payload);
+
+      console.log("✅ [TYPING_STOP] completed");
+      return result;
+    }
   );
 }
