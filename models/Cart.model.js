@@ -3,7 +3,6 @@ import { cartItemSchema } from "./CartItem.model.js";
 
 const { Schema, Types, model } = mongoose;
 
-
 /* =========================
    CART
 ========================= */
@@ -13,26 +12,26 @@ const cartSchema = new Schema(
       type: Types.ObjectId,
       ref: "User",
       required: true,
-      unique: true
+      unique: true,
     },
 
     items: {
       type: [cartItemSchema],
-      default: []
+      default: [],
     },
 
     subtotal: {
       type: Number,
-      default: 0
-    }
+      default: 0,
+    },
   },
   {
-    timestamps: true
+    timestamps: true,
   }
 );
 
 /* =========================
-   INDEX
+   INDEXES
 ========================= */
 cartSchema.index({ user: 1 });
 
@@ -49,10 +48,8 @@ cartSchema.pre("save", function () {
     item.total = item.price * item.quantity;
   });
 
-  this.subtotal = this.items.reduce(
-    (sum, item) => sum + item.total,
-    0
-  );
+  this.subtotal = this.items.reduce((sum, item) => sum + item.total, 0);
 });
 
-export const Cart =mongoose.models.Cart || model("Cart", cartSchema);
+export const Cart =
+  mongoose.models.Cart || model("Cart", cartSchema);

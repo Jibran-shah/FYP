@@ -10,7 +10,7 @@ import {
 
 import { validate } from "../../../middlewares/validate.middleware.js";
 import { asyncHandler } from "../../../utils/asyncHandler.js";
-import { protect } from "../../../middlewares/protect.middleware.js";
+import { protect, restrictTo } from "../../../middlewares/protect.middleware.js";
 
 const router = Router();
 
@@ -41,6 +41,7 @@ router.get(
 router.patch(
   "/:buyerOrderId/status",
   protect(),
+  restrictTo("admin"),
   validate(paramsBuyerOrderIdSchema, "params"),
   validate(updateBuyerOrderStatusSchema, "body"),
   asyncHandler(buyerOrdersController.updateBuyerOrderStatus)

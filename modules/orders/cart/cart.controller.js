@@ -5,7 +5,7 @@ import * as cartService from "./cart.service.js";
 ========================= */
 export const getCart = async (req, res) => {
   const result = await cartService.getCart({
-    userId: req.user.id
+    userId: req?.user?.id
   });
 
   res.status(200).json({

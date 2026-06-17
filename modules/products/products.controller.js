@@ -80,17 +80,19 @@ export const getProductById = async (req, res) => {
    UPDATE PRODUCT
 ====================== */
 export const updateProduct = async (req, res) => {
+
+  console.log("UpdateProduct:",req.media?.images);
+
   const product = await productService.updateProduct(
     {
       productId: req.validated?.params.id,
-      userId: req.user.id,
+      user: req.user,
       data: {
         ...req.validated?.body,
-        files: req.media?.images || [],
-        fileIds: req.body?.fileIds || []
-      }
-    },
-    req.mediaContext?.images
+        files: req.media?.images || []
+      },
+      context:req.mediaContext?.images
+    }
   );
 
   res.json({
@@ -105,7 +107,16 @@ export const updateProduct = async (req, res) => {
 export const deleteProduct = async (req, res) => {
   await productService.deleteProduct({
     productId: req.validated?.params.id,
-    userId: req.user.id
+    user: req.user
+  });
+
+  res.status(204).send();
+};
+
+
+export const deleteProductAdmin = async (req, res) => {
+  await productService.deleteProduct({
+    productId: req.validated?.params.id
   });
 
   res.status(204).send();

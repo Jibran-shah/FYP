@@ -54,7 +54,6 @@ const messageSchema = new Schema(
     ========================= */
     tempId: {
       type: String,
-      index: true,
       sparse: true
     },
 

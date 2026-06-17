@@ -13,7 +13,9 @@
   "license": "ISC",
   "dependencies": {
     "@sfpy/node-core": "^0.3.5",
+    "@sfpy/node-sdk": "^3.0.2",
     "@socket.io/redis-adapter": "^8.3.0",
+    "axios": "^1.18.0",
     "bcrypt": "^6.0.0",
     "bcryptjs": "^3.0.3",
     "bullmq": "^5.73.5",
@@ -35,8 +37,9 @@
     "redis": "^5.12.1",
     "slugify": "^1.6.9",
     "socket.io": "^4.8.3",
-    "update": "^0.7.4",
+    "update": "^0.4.2",
     "uuid": "^14.0.0",
+    "web-push": "^3.6.7",
     "winston": "^3.19.0",
     "winston-daily-rotate-file": "^5.0.0"
   },

@@ -27,7 +27,7 @@ import {
   paramIdSchema
 } from "./auth.validation.js";
 import { asyncHandler } from "../../utils/asyncHandler.js";
-import { protect } from "../../middlewares/protect.middleware.js";
+import { protect, restrictTo } from "../../middlewares/protect.middleware.js";
 
 const router = express.Router();
 
@@ -66,6 +66,6 @@ router.post("/logout-all", protect(), asyncHandler(logoutAll));
 // Refresh token
 router.post("/refresh-token", asyncHandler(refreshToken));
 
-router.get("/:id", protect(), validate(paramIdSchema,"params"), asyncHandler(getUserById));
+router.get("/:id", protect(),restrictTo("admin"), validate(paramIdSchema,"params"), asyncHandler(getUserById));
 
 export default router;

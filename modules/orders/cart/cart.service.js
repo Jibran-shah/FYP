@@ -1,9 +1,17 @@
 import {
   NotFoundError,
-  BadRequestError
+  BadRequestError,
 } from "../../../errors/Http.error.js";
+
 import { Cart } from "../../../models/Cart.model.js";
-import Product from "../../../models/Product.model.js"
+import Product from "../../../models/Product.model.js";
+
+/* =========================
+   HELPER
+========================= */
+const calculateSubtotal = (cart) => {
+  return cart.items.reduce((sum, item) => sum + item.total, 0);
+};
 
 /* =========================
    GET CART
@@ -15,17 +23,20 @@ export const getCart = async ({ userId }) => {
     cart = await Cart.create({
       user: userId,
       items: [],
-      subtotal: 0
+      subtotal: 0,
     });
   }
 
   return cart;
 };
 
+/* =========================
+   ADD TO CART
+========================= */
 export const addToCart = async ({
   userId,
   productId,
-  quantity
+  quantity,
 }) => {
   const product = await Product.findById(productId);
 
@@ -33,13 +44,14 @@ export const addToCart = async ({
     throw new NotFoundError("product not found");
   }
 
-  if (product.quantityAvailable <= 0) {
-    throw new BadRequestError("product out of stock");
+  if (product.quantityAvailable < quantity) {
+    throw new BadRequestError("not enough stock available");
   }
 
   const sellerId = product.seller;
-
   const cart = await getCart({ userId });
+
+  const price = product.price;
 
   const existingItem = cart.items.find(
     (item) =>
@@ -47,23 +59,22 @@ export const addToCart = async ({
       item.seller.toString() === sellerId.toString()
   );
 
-  const price = product.price;
-
   if (existingItem) {
     existingItem.quantity += quantity;
-    existingItem.price = price; // keep snapshot updated
-    existingItem.total =
-      existingItem.quantity * price;
+    existingItem.price = price;
+    existingItem.total = existingItem.quantity * price;
   } else {
     cart.items.push({
       product: productId,
       seller: sellerId,
       name: product.name,
-      price: price,
+      price,
       quantity,
-      total: price * quantity
+      total: price * quantity,
     });
   }
+
+  cart.subtotal = calculateSubtotal(cart);
 
   await cart.save();
   return cart;
@@ -75,7 +86,7 @@ export const addToCart = async ({
 export const updateCartItem = async ({
   userId,
   productId,
-  quantity
+  quantity,
 }) => {
   const cart = await getCart({ userId });
 
@@ -87,8 +98,14 @@ export const updateCartItem = async ({
     throw new NotFoundError("Cart item not found");
   }
 
+  if (quantity <= 0) {
+    throw new BadRequestError("quantity must be greater than 0");
+  }
+
   item.quantity = quantity;
   item.total = item.price * quantity;
+
+  cart.subtotal = calculateSubtotal(cart);
 
   await cart.save();
   return cart;
@@ -99,7 +116,7 @@ export const updateCartItem = async ({
 ========================= */
 export const removeCartItem = async ({
   userId,
-  productId
+  productId,
 }) => {
   const cart = await getCart({ userId });
 
@@ -112,6 +129,8 @@ export const removeCartItem = async ({
   if (cart.items.length === initialLength) {
     throw new NotFoundError("Item not found in cart");
   }
+
+  cart.subtotal = calculateSubtotal(cart);
 
   await cart.save();
   return cart;

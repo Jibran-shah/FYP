@@ -1,27 +1,53 @@
 import mongoose from "mongoose";
-
 import { v4 as uuidv4 } from "uuid";
+import crypto from "crypto";
 
+/* =========================
+   MODELS
+========================= */
 import { BuyerOrder } from "../../models/BuyerOrder.model.js";
 import { PaymentTransaction } from "../../models/PaymentTransaction.model.js";
 import { Booking } from "../../models/Booking.model.js";
-import { SellerOrder } from "../../models/SellerOrder.model.js";
+import ProductSeller from "../../models/ProductSeller.model.js";
+import { ServiceProvider } from "../../models/ServiceProvider.model.js";
 import { WalletTransaction } from "../../models/WalletTransaction.model.js";
 
+/* =========================
+   SERVICES
+========================= */
 import { createSellerOrdersFromBuyerOrder } from "../orders/sellerOrders/sellerOrders.service.js";
 import { getOrCreateWallet } from "../accountFunds/wallet/wallet.service.js";
-import ProductSeller from "../../models/ProductSeller.model.js";
-import { MODELS } from "../../constants/models.constants.js";
-import { WALLET_TRANSACTION_STATUS, WALLET_TRANSACTION_TYPE } from "../../constants/wallet.constants.js";
-import { BOOKING_STATUS } from "../../constants/booking.constants.js";
-import { PAYABLE_TYPE } from "../../constants/payment.constants.js";
-import { logger } from "../../config/logger.js";
-import { BUYER_ORDER_STATUS } from "../../constants/order.constants.js";
-import { ServiceProvider } from "../../models/ServiceProvider.model.js";
 
+/* =========================
+   CONSTANTS
+========================= */
+import {
+  BUYER_ORDER_STATUS,
+} from "../../constants/order.constants.js";
+
+import {
+  PAYMENT_STATUS,
+  PAYABLE_TYPE,
+} from "../../constants/payment.constants.js";
+
+import {
+  WALLET_TRANSACTION_STATUS,
+  WALLET_TRANSACTION_TYPE,
+} from "../../constants/wallet.constants.js";
+
+import {
+  BOOKING_STATUS,
+} from "../../constants/booking.constants.js";
+
+import { MODELS } from "../../constants/models.constants.js";
+
+import { logger } from "../../config/logger.js";
+
+import { BadRequestError, InternalServerError } from "../../errors/Http.error.js";
+import {processRefund, safepay} from "../../utils/payment.utils.js"
 
 /* =========================================================
-   CREATE PAYMENT TRANSACTION (MANUAL / CART / ORDER INIT)
+   CREATE PAYMENT TRANSACTION (INIT)
 ========================================================= */
 export const createPaymentTransaction = async ({
   buyerId,
@@ -29,38 +55,36 @@ export const createPaymentTransaction = async ({
   payableType,
   payableId,
   provider,
-  idempotencyKey
+  idempotencyKey,
 }) => {
   const existing = idempotencyKey
     ? await PaymentTransaction.findOne({
         buyer: buyerId,
-        idempotencyKey
+        idempotencyKey,
       })
     : null;
 
   if (existing) return existing;
 
-  const transaction = await PaymentTransaction.create({
+  return PaymentTransaction.create({
     buyer: buyerId,
     amount,
     provider,
     payableType,
     payableId,
-    status: "pending",
+    status: PAYMENT_STATUS.PENDING,
     transactionId: uuidv4(),
-    idempotencyKey: idempotencyKey || null
+    idempotencyKey: idempotencyKey || null,
   });
-
-  return transaction;
 };
 
 /* =========================================================
-   GET MY PAYMENT TRANSACTIONS
+   GET ALL TRANSACTIONS
 ========================================================= */
 export const getMyPaymentTransactions = async ({
   buyerId,
   page = 1,
-  limit = 20
+  limit = 20,
 }) => {
   page = Math.max(Number(page), 1);
   limit = Math.min(Math.max(Number(limit), 1), 100);
@@ -71,7 +95,7 @@ export const getMyPaymentTransactions = async ({
       .skip((page - 1) * limit)
       .limit(limit),
 
-    PaymentTransaction.countDocuments({ buyer: buyerId })
+    PaymentTransaction.countDocuments({ buyer: buyerId }),
   ]);
 
   return {
@@ -80,21 +104,21 @@ export const getMyPaymentTransactions = async ({
       total,
       page,
       pages: Math.ceil(total / limit),
-      limit
-    }
+      limit,
+    },
   };
 };
 
 /* =========================================================
-   GET SINGLE PAYMENT TRANSACTION
+   GET SINGLE TRANSACTION
 ========================================================= */
 export const getPaymentTransactionById = async ({
   transactionId,
-  buyerId
+  buyerId,
 }) => {
   const transaction = await PaymentTransaction.findOne({
     _id: transactionId,
-    buyer: buyerId
+    buyer: buyerId,
   });
 
   if (!transaction) {
@@ -105,13 +129,71 @@ export const getPaymentTransactionById = async ({
 };
 
 
+/* =========================================================
+   SAFEPEAY WEBHOOK ENTRY POINT
+========================================================= */
+export const safePayWebhook = async (req, res) => {
+  try {
+    const signature = req.headers["x-safepay-signature"];
+    const secret = process.env.SAFEPAY_WEBHOOK_SECRET;
+
+    if (!signature || !secret) {
+      return res.status(400).json({ message: "Missing signature" });
+    }
+
+    const rawBody = JSON.stringify(req.body);
+
+    // 🔐 VERIFY SIGNATURE (Safepay style HMAC)
+    const expectedSignature = crypto
+      .createHmac("sha256", secret)
+      .update(rawBody)
+      .digest("hex");
+
+    if (signature !== expectedSignature) {
+      return res.status(401).json({ message: "Invalid signature" });
+    }
+
+    const payload = req.body;
+    const data = payload?.data;
+
+    if (!data) {
+      return res.status(400).json({ message: "Invalid payload" });
+    }
+
+    const trackerToken = data?.tracker?.token;
+    const state = data?.tracker?.state; // Safepay style
+
+    let status = "pending";
+
+    if (state === "TRACKER_ENDED" || state === "PAID") {
+      status = "success";
+    } else if (state === "FAILED" || state === "CANCELLED") {
+      status = "failed";
+    }
+
+    await handlePaymentWebhook({
+      trackerToken,
+      status,
+      raw: payload,
+      paymentMethod: data?.payment_method,
+    });
+
+    return res.status(200).json({ received: true });
+  } catch (err) {
+    console.error("Webhook error:", err);
+    return res.status(500).json({ message: "Webhook failed" });
+  }
+};
 
 /* =========================================================
-   MAIN WEBHOOK ENTRY
+   WEBHOOK ENTRY (SOURCE OF TRUTH)
 ========================================================= */
 export const handlePaymentWebhook = async ({
   gatewayTransactionId,
-  status
+  trackerToken,
+  status,
+  raw,
+  paymentMethod,
 }) => {
   const session = await mongoose.startSession();
 
@@ -119,25 +201,46 @@ export const handlePaymentWebhook = async ({
     session.startTransaction();
 
     const transaction = await PaymentTransaction.findOne({
-      transactionId: gatewayTransactionId
+      gatewayData:{
+        trackerToken
+      }
     }).session(session);
 
     if (!transaction) {
       throw new Error("Payment transaction not found");
     }
 
-    // normalize status
+    transaction.status = "ended"
+
     const newStatus = status.toLowerCase();
 
-    // HARD IDEMPOTENCY GUARD
+    /* =========================
+       IDEMPOTENCY GUARD
+    ========================= */
     if (transaction.status === newStatus) {
       await session.commitTransaction();
       return transaction;
     }
 
     transaction.status = newStatus;
+
+    transaction.gatewayData = {
+      ...transaction.gatewayData,
+      response: raw,
+      paymentMethod: paymentMethod
+        ? {
+            token: paymentMethod.token,
+            cardType: paymentMethod.card_type,
+            lastFour: paymentMethod.last_four,
+          }
+        : transaction.gatewayData?.paymentMethod,
+    };
+
     await transaction.save({ session });
 
+    /* =========================
+       ROUTE FLOW
+    ========================= */
     if (newStatus === "success") {
       await handleSuccess(transaction, session);
     }
@@ -151,6 +254,7 @@ export const handlePaymentWebhook = async ({
     }
 
     await session.commitTransaction();
+
     return transaction;
   } catch (err) {
     await session.abortTransaction();
@@ -161,7 +265,7 @@ export const handlePaymentWebhook = async ({
 };
 
 /* =========================================================
-   SUCCESS FLOW (ESCROW RELEASE)
+   SUCCESS FLOW
 ========================================================= */
 const handleSuccess = async (transaction, session) => {
   if (transaction.payableType === PAYABLE_TYPE.ORDER) {
@@ -169,52 +273,40 @@ const handleSuccess = async (transaction, session) => {
       transaction.payableId
     ).session(session);
 
-    if (!buyerOrder) {
-      throw new Error("Buyer order not found");
-    }
+    if (!buyerOrder) return;
 
-    // already processed guard
     if (buyerOrder.status === BUYER_ORDER_STATUS.PAID) return;
 
     buyerOrder.status = BUYER_ORDER_STATUS.PAID;
     await buyerOrder.save({ session });
 
-    // ================================
-    // FIX 1: ALWAYS CREATE SELLER ORDERS HERE
-    // ================================
-    const sellerOrders = await createSellerOrdersFromBuyerOrder({
-      buyerOrder,
-      paymentTransaction: transaction._id,
-      session
-    });
+    const sellerOrders =
+      await createSellerOrdersFromBuyerOrder({
+        buyerOrder,
+        paymentTransaction: transaction._id,
+        session,
+      });
 
     buyerOrder.sellerOrders = sellerOrders.map((o) => o._id);
     await buyerOrder.save({ session });
 
-    // ================================
-    // FIX 2: WALLET DISTRIBUTION SAFE
-    // ================================
     for (const sellerOrder of sellerOrders) {
-
-      const sellerId = sellerOrder.seller?.toString();
-
-      const seller = await ProductSeller.findById(sellerId).session(session);
+      const seller = await ProductSeller.findById(
+        sellerOrder.seller
+      ).session(session);
 
       if (!seller) continue;
 
-      const sellerUserId = seller.user;
+      const userId = seller.user;
 
       const existingTxn = await WalletTransaction.findOne({
         referenceModel: MODELS.SELLER_ORDER,
-        referenceId: sellerOrder._id
+        referenceId: sellerOrder._id,
       }).session(session);
 
       if (existingTxn) continue;
 
-      const wallet = await getOrCreateWallet(
-        sellerUserId,
-        session
-      );
+      const wallet = await getOrCreateWallet(userId, session);
 
       wallet.pendingBalance =
         (wallet.pendingBalance || 0) +
@@ -226,18 +318,18 @@ const handleSuccess = async (transaction, session) => {
         [
           {
             wallet: wallet._id,
-            userId: sellerUserId,
+            userId,
             type: WALLET_TRANSACTION_TYPE.ORDER_EARNING,
             amount: sellerOrder.totalAmount || 0,
             referenceModel: MODELS.SELLER_ORDER,
             referenceId: sellerOrder._id,
-            status: WALLET_TRANSACTION_STATUS.PENDING
-          }
+            status: WALLET_TRANSACTION_STATUS.PENDING,
+          },
         ],
         { session }
       );
     }
-  } 
+  }
 
   else if (transaction.payableType === PAYABLE_TYPE.BOOKING) {
     const booking = await Booking.findById(
@@ -255,27 +347,21 @@ const handleSuccess = async (transaction, session) => {
       booking.serviceProvider
     ).session(session);
 
-    if (!provider) {
-      throw new Error("Service provider not found");
-    }
+    if (!provider) return;
 
-    const providerUserId = provider.user;
+    const userId = provider.user;
 
     const existingTxn = await WalletTransaction.findOne({
       referenceModel: MODELS.BOOKING,
-      referenceId: booking._id
+      referenceId: booking._id,
     }).session(session);
 
     if (existingTxn) return;
 
-    const wallet = await getOrCreateWallet(
-      providerUserId,
-      session
-    );
+    const wallet = await getOrCreateWallet(userId, session);
 
     wallet.pendingBalance =
-      (wallet.pendingBalance || 0) +
-      (booking.price || 0);
+      (wallet.pendingBalance || 0) + (booking.price || 0);
 
     await wallet.save({ session });
 
@@ -283,19 +369,20 @@ const handleSuccess = async (transaction, session) => {
       [
         {
           wallet: wallet._id,
-          userId: providerUserId,
+          userId,
           type: WALLET_TRANSACTION_TYPE.BOOKING_EARNING,
           amount: booking.price || 0,
           referenceModel: MODELS.BOOKING,
           referenceId: booking._id,
-          status: WALLET_TRANSACTION_STATUS.PENDING
-        }
+          status: WALLET_TRANSACTION_STATUS.PENDING,
+        },
       ],
       { session }
     );
   }
-  else{
-    logger.error("invalid payable type");
+
+  else {
+    logger.error("Invalid payable type");
   }
 };
 
@@ -303,64 +390,26 @@ const handleSuccess = async (transaction, session) => {
    FAILED FLOW
 ========================================================= */
 const handleFailed = async (transaction, session) => {
-  if (transaction.payableType === "order") {
-    const order = await BuyerOrder.findById(
-      transaction.payableId
-    ).session(session);
+  const model =
+    transaction.payableType === PAYABLE_TYPE.ORDER
+      ? BuyerOrder
+      : Booking;
 
-    if (!order) return;
+  const doc = await model
+    .findById(transaction.payableId)
+    .session(session);
 
-    if (order.status === "failed") return;
+  if (!doc) return;
 
-    order.status = "failed";
-    await order.save({ session });
-  }
-
-  if (transaction.payableType === "booking") {
-    const booking = await Booking.findById(
-      transaction.payableId
-    ).session(session);
-
-    if (!booking) return;
-
-    if (booking.status === "failed") return;
-
-    booking.status = "failed";
-    await booking.save({ session });
-  }
+  doc.status = "failed";
+  await doc.save({ session });
 };
 
-/* =========================================================
-   REFUND FLOW
-========================================================= */
-const handleRefund = async (transaction, session) => {
-  if (transaction.payableType === "order") {
-    const order = await BuyerOrder.findById(
-      transaction.payableId
-    ).session(session);
-
-    if (!order) return;
-
-    if (order.status === "refunded") return;
-
-    order.status = "refunded";
-    await order.save({ session });
-
-    // TODO: rollback wallet logic later
-  }
-
-  if (transaction.payableType === "booking") {
-    const booking = await Booking.findById(
-      transaction.payableId
-    ).session(session);
-
-    if (!booking) return;
-
-    if (booking.status === "refunded") return;
-
-    booking.status = "refunded";
-    await booking.save({ session });
-
-    // TODO: rollback wallet logic later
-  }
-};
+const refundPayment = async ({transactionId}) => {
+  const paymentTransaction = await PaymentTransaction.findById(transactionId)
+  const trackerToken = paymentTransaction?.gatewayData?.trackerToken
+  if(trackerToken)
+    throw new InternalServerError("Malformed payment transaction document");
+  const refundResponse =  await processRefund(trackerToken,paymentTransaction.amount);
+  return refundResponse;
+}

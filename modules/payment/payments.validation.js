@@ -30,6 +30,19 @@ export const paramsTransactionIdSchema = Joi.object({
   transactionId: mongoIdSchema.required().label("transactionId")
 });
 
+export const confirmSchema = Joi.object({
+  trackerId: Joi.string()
+    .trim()
+    .required()
+    .pattern(/^track_[a-zA-Z0-9-]+$/)
+    .messages({
+      "string.base": "trackerId must be a string",
+      "string.empty": "trackerId is required",
+      "any.required": "trackerId is required",
+      "string.pattern.base": "trackerId format is invalid",
+    }),
+});
+
 /* =========================
    QUERY: MY TRANSACTIONS
 ========================= */

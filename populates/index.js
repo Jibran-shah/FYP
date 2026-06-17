@@ -69,3 +69,9 @@ export const productSellerPopulate = {
    REVIEW USER
 ========================================================= */
 export const reviewUserPopulate = userPopulate;
+
+
+export const directChatDeepPopulate = {
+  path:"participants",
+  populate:baseProfilePopulate
+}

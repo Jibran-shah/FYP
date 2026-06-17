@@ -572,3 +572,50 @@ export const bulkDeleteProviders = async (
     throw err;
   }
 };
+
+
+
+/* =========================
+   DELETE PROVIDER
+========================= */
+
+export const deleteProvider = async (id) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const provider =
+      await ServiceProvider.findById(id).session(session);
+
+    if (!provider) {
+      throw new NotFoundError(
+        "Service provider not found"
+      );
+    }
+    await provider.deleteOne({ session });
+
+    await syncRole({
+      userId: provider.user,
+      role: PROFILE_ROLE_TYPES.SERVICE_PROVIDER,
+      Model: ServiceProvider,
+      session
+    });
+
+    const _user = await User.findOneAndUpdate(
+      { _id: provider.user },
+      { serviceProviderProfile: null },
+      { session, new: true }
+    );
+
+    refreshSessionSystem.deleteAll(_user._id);
+
+    await session.commitTransaction();
+    session.endSession();
+
+    return { user:_user };
+  } catch (err) {
+    await session.abortTransaction();
+    session.endSession();
+    throw err;
+  }
+};

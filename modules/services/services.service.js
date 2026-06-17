@@ -261,7 +261,7 @@ export const getServiceById = async (serviceId) => {
 
 export const updateService = async ({
   serviceId,
-  userId,
+  user,
   data
 }) => {
   if (!isValidId(serviceId)) {
@@ -274,7 +274,7 @@ export const updateService = async ({
     throw new NotFoundError("Service not found");
   }
 
-  if (service.provider.toString() !== userId) {
+  if (service.provider.toString() !== user.serviceProvider) {
     throw new UnauthorizedError(
       "Not allowed to update this service"
     );
@@ -309,7 +309,7 @@ export const updateService = async ({
 
 export const deleteService = async ({
   serviceId,
-  userId
+  user
 }) => {
   if (!isValidId(serviceId)) {
     throw new BadRequestError("Invalid service id");
@@ -321,7 +321,7 @@ export const deleteService = async ({
     throw new NotFoundError("Service not found");
   }
 
-  if (service.provider.toString() !== userId) {
+  if (service.provider.toString() !== user.serviceProvider) {
     throw new UnauthorizedError("Not allowed to delete this service");
   }
 

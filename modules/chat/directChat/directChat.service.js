@@ -1,8 +1,13 @@
 import { AppError } from "../../../errors/App.error.js";
 import { NotFoundError, UnauthorizedError } from "../../../errors/Http.error.js";
 import { DirectChat } from "../../../models/DirectChat.model.js";
+import { directChatDeepPopulate } from "../../../populates/index.js";
 import { roomStore } from "../../../realtime/utils/room.store.js";
 import { toStr } from "../../../utils/string.utils.js";
+
+
+
+
 export const createDirectChat = async ({ userId1, userId2 }) => {
   const u1 = toStr(userId1);
   const u2 = toStr(userId2);
@@ -31,6 +36,8 @@ export const createDirectChat = async ({ userId1, userId2 }) => {
       await existingChat.save();
     }
 
+    existingChat.populate(directChatDeepPopulate);
+
     return existingChat;
   }
 
@@ -44,7 +51,7 @@ export const createDirectChat = async ({ userId1, userId2 }) => {
     members: [u1, u2]
   });
 
-  return chat;
+  return chat.populate(directChatDeepPopulate);
 };
 
 
@@ -89,7 +96,7 @@ export const getDirectChat = async (chatId, userId) => {
     });
   }
 
-  return chat;
+  return chat.populate(directChatDeepPopulate);
 };
 
 /* =========================
@@ -105,7 +112,7 @@ export const getUserDirectChats = async (userId) => {
     isDeleted: false,
     deletedFor: { $ne: uid },
     blockedBy: { $ne: uid }
-  }).sort({ updatedAt: -1 });
+  }).sort({ updatedAt: -1 }).populate(directChatDeepPopulate);
 
   return chats;
 };

@@ -8,7 +8,7 @@ import {
   getBookingsQuerySchema,
   updateBookingStatusSchema
 } from "./bookings.validation.js";
-import { protect } from "../../middlewares/protect.middleware.js";
+import { protect, restrictTo } from "../../middlewares/protect.middleware.js";
 import { validate } from "../../middlewares/validate.middleware.js";
 import { asyncHandler } from "../../utils/asyncHandler.js";
 
@@ -51,6 +51,7 @@ router.get(
 router.patch(
   "/:bookingId/status",
   protect(),
+  restrictTo("admin"),
   validate(paramsBookingIdSchema, "params"),
   validate(updateBookingStatusSchema, "body"),
   asyncHandler(bookingsController.updateBookingStatus)

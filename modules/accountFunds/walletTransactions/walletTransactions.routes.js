@@ -8,7 +8,7 @@ import {
   createWalletTransactionSchema,
 } from "./walletTransactions.validation.js";
 
-import { protect } from "../../../middlewares/protect.middleware.js";
+import { protect, restrictTo } from "../../../middlewares/protect.middleware.js";
 import { validate } from "../../../middlewares/validate.middleware.js";
 import { asyncHandler } from "../../../utils/asyncHandler.js";
 
@@ -37,6 +37,7 @@ router.get(
 router.post(
   "/admin/manual",
   protect(),
+  restrictTo("admin"),
   validate(createWalletTransactionSchema, "body"),
   asyncHandler(walletTransactionController.createManualTransaction)
 );

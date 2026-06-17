@@ -9,7 +9,8 @@ import {
   updateProductSeller,
   deleteProductSeller,
   bulkDeleteProductSellers,
-  getMySellerProfile
+  getMySellerProfile,
+  deleteProductSellerAdmin
 } from "./seller.controller.js";
 
 import { validate } from "../../../middlewares/validate.middleware.js";
@@ -142,6 +143,17 @@ router.delete(
   "/",
   protect(),
   asyncHandler(deleteProductSeller)
+);
+
+/* =========================================================
+   DELETE SELLER
+========================================================= */
+router.delete(
+  "/admin/:id",
+  protect({requireBaseProfile:true}),
+  restrictTo("admin"),
+  validate(productSellerIdParamSchema,"params"),
+  asyncHandler(deleteProductSellerAdmin)
 );
 
 export default router;

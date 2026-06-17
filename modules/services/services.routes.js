@@ -62,7 +62,7 @@ router.patch(
 router.delete(
   "/:id",
   protect({requireServiceProviderProfile:true}),
-  validate(idParamSchema),
+  validate(idParamSchema,"params"),
   asyncHandler(serviceController.deleteService)
 );
 

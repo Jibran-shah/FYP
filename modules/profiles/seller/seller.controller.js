@@ -126,6 +126,17 @@ export const deleteProductSeller = async (req, res) => {
   });
 };
 
+
+// DELETE
+export const deleteProductSellerAdmin = async (req, res) => {
+  const id = req.validated?.params.id;
+  await productSellerService.deleteSellerByIdAdmin(id);
+  return res.status(200).json({
+    success: true,
+    message: "Product seller deleted successfully"
+  });
+};
+
 // BULK DELETE
 export const bulkDeleteProductSellers = async (req, res) => {
   await productSellerService.bulkDeleteSellers(

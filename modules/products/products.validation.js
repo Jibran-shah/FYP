@@ -46,8 +46,7 @@ export const updateProductSchema = Joi.object({
   price: Joi.number().min(0),
   quantityAvailable: Joi.number().min(0),
   status: Joi.string().valid(...PRODUCT_STATUS_ARRAY),
-  images: Joi.array().items(mongoIdSchema.optional()),
-
+  imageIds: Joi.array().items(mongoIdSchema.optional()),
   seller: Joi.forbidden(),
   ratingSum: Joi.forbidden(),
   ratingCount: Joi.forbidden(),

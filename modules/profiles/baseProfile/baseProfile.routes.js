@@ -8,7 +8,7 @@ import {
   profileIdSchema,
   updateProfileSchema
 } from "./baseProfile.validation.js";
-import { protect} from "../../../middlewares/protect.middleware.js";
+import { protect, restrictTo} from "../../../middlewares/protect.middleware.js";
 import {mediaContext} from "../../../middlewares/mediaContext.middlware.js"
 import { FILE_MAX_SIZES, MEDIA_USAGE_TYPES, NAMESPACES } from "../../../constants/media.constants.js";
 import { createUpload } from "../../../middlewares/upload.middleware.js";
@@ -93,6 +93,14 @@ router.put(
 );
 
 router.delete("/",protect({requireBaseProfile:true}), profileController.deleteProfile);
+
+router.delete(
+  "/admin/:id",
+  protect({requireBaseProfile:true}),
+  restrictTo("admin"),
+  validate(profileIdSchema,"params"), 
+  profileController.deleteProfile
+);
 
 router.get("/byUser",protect({requireBaseProfile:true}), profileController.getProfileByUser);
 

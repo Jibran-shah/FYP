@@ -4,6 +4,9 @@ import { setupSocketRedisAdapter } from "./utils/setup/socketRedisAdapter.js";
 import { connectProducer } from "../kafka/producer.js";
 import { registerPlugins } from "./plugins/registorPlugins.js";
 
+
+let io;
+
 export async function initSocket(server) {
   console.log("🚀 [Socket] Initializing Socket.IO server...");
 
@@ -13,7 +16,7 @@ export async function initSocket(server) {
 
   console.log("🌐 [Socket] Allowed origins:", allowedOrigins);
 
-  const io = new Server(server, {
+  io = new Server(server, {
     cors: {
       origin: allowedOrigins,
       credentials: true,
@@ -83,3 +86,13 @@ export async function initSocket(server) {
 
   return io;
 }
+
+
+
+export const getIO = () => {
+  if (!io) {
+    throw new Error("Socket.io not initialized");
+  }
+
+  return io;
+};

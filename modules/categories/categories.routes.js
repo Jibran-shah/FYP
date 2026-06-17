@@ -1,7 +1,7 @@
 import express from "express";
 import * as categoryController from "./categories.controller.js";
 
-import { protect } from "../../middlewares/protect.middleware.js";
+import { protect, restrictTo } from "../../middlewares/protect.middleware.js";
 import { validate } from "../../middlewares/validate.middleware.js";
 import { asyncHandler } from "../../utils/asyncHandler.js";
 
@@ -25,6 +25,7 @@ router.use(protect({requireBaseProfile:true}));
 ====================== */
 router.post(
   "/",
+  restrictTo("admin"),
   validate(createCategorySchema),
   asyncHandler(categoryController.createCategory)
 );
@@ -59,6 +60,7 @@ router.get(
 ====================== */
 router.patch(
   "/:id",
+  restrictTo("admin"),
   validate(updateCategorySchema),
   asyncHandler(categoryController.updateCategory)
 );
@@ -68,6 +70,7 @@ router.patch(
 ====================== */
 router.delete(
   "/:id",
+  restrictTo("admin"),
   validate(idParamSchema, "params"),
   asyncHandler(categoryController.deleteCategory)
 );

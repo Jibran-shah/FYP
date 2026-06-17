@@ -1,7 +1,7 @@
 import express from "express";
 import { asyncHandler } from "../../utils/asyncHandler.js";
 import * as productController from "./products.controller.js";
-import { protect } from "../../middlewares/protect.middleware.js";
+import { protect, restrictTo } from "../../middlewares/protect.middleware.js";
 import { validate } from "../../middlewares/validate.middleware.js";
 
 import { createUpload } from "../../middlewares/upload.middleware.js";
@@ -85,7 +85,6 @@ router.get(
 router.patch(
   "/:id",
   protect({ requireProductSellerProfile: true }),
-
   /* =========================
      FILE UPLOAD
   ========================= */
@@ -98,23 +97,18 @@ router.patch(
       }
     ]
   }),
-
-  /* =========================
-     MEDIA CONTEXT (NEW SYSTEM)
-  ========================= */
   mediaContext({
     ownerFrom: "user",
     fields: {
       images: {
-        namespace: "PRODUCT",
-        usageType: "PRODUCT_IMAGE"
+        namespace: NAMESPACES.PRODUCT_IMAGES,
+        usageType: MEDIA_USAGE_TYPES.PRODUCT_IMAGE
       }
     }
   }),
 
   validate(idParamSchema, "params"),
   validate(updateProductSchema, "body"),
-
   asyncHandler(productController.updateProduct)
 );
 
@@ -126,6 +120,14 @@ router.delete(
   protect({ requireProductSellerProfile: true }),
   validate(idParamSchema, "params"),
   asyncHandler(productController.deleteProduct)
+);
+
+router.delete(
+  "/admin/:id",
+  protect({ requireProductSellerProfile: true }),
+  restrictTo("admin"),
+  validate(idParamSchema, "params"),
+  asyncHandler(productController.deleteProductAdmin)
 );
 
 export default router;

@@ -177,6 +177,8 @@ const isMultipart = (req) =>
 
 export const createUpload = ({ fields = [] } = {}) => {
   return (req, res, next) => {
+    
+    console.log("upload middleware received:",req.files)
     if (!isMultipart(req)) return next();
 
     const multerFields = fields.map((f) => ({
@@ -188,6 +190,7 @@ export const createUpload = ({ fields = [] } = {}) => {
       if (err) return next(err);
 
       req.media = {};
+
 
       try {
         for (const field of fields) {

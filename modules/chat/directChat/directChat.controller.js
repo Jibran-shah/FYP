@@ -1,7 +1,7 @@
 import * as directChatService from "./directChat.service.js";
 
 export const createDirectChat = async (req, res) => {
-  const userId1 = req.user.id;
+  const userId1 = req.user?.id;
   const userId2 = req.validated?.body?.userId;
 
   const chat = await directChatService.createDirectChat({

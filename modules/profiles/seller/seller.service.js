@@ -453,3 +453,29 @@ export const deleteSellerById = async (_user) => {
     await session.endSession();
   }
 };
+
+
+
+export const deleteSellerByIdAdmin = async (id) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    await ProductSeller.findByIdAndDelete(idParamSchema).session(session);
+    const user = await UserModel.findOne({productSeller:id});
+    user.productSeller = null
+    const deletedProducts = await Product.deleteMany({seller:id},{session});
+    await user.save({ session });
+    refreshSessionSystem.deleteAll(user._id)
+    await session.commitTransaction();
+    return {
+      success: true
+    };
+
+  } catch (err) {
+    await session.abortTransaction();
+    throw err;
+  } finally {
+    await session.endSession();
+  }
+};

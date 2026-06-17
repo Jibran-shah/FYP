@@ -6,12 +6,14 @@ import {
   createPaymentTransactionSchema,
   paramsTransactionIdSchema,
   getTransactionsQuerySchema,
-  paymentWebhookSchema
+  paymentWebhookSchema,
+  confirmSchema
 } from "./payments.validation.js";
 
-import { protect } from "../../middlewares/protect.middleware.js";
+import { protect, restrictTo } from "../../middlewares/protect.middleware.js";
 import { validate } from "../../middlewares/validate.middleware.js";
 import { asyncHandler } from "../../utils/asyncHandler.js";
+import { verifyWebhook } from "../../utils/payment.utils.js";
 
 const router = Router();
 
@@ -23,6 +25,13 @@ router.post(
   protect(),
   validate(createPaymentTransactionSchema, "body"),
   asyncHandler(paymentTransactionsController.createPaymentTransaction)
+);
+
+
+
+router.post(
+  "/webhooks/safepay",
+  asyncHandler(paymentTransactionsController.safepayWebhook)
 );
 
 /* =========================
@@ -55,12 +64,20 @@ router.post(
   asyncHandler(paymentTransactionsController.handlePaymentWebhook)
 );
 
+router.post(
+  "/confirm",
+  protect(),
+  validate(confirmSchema),
+  asyncHandler(paymentTransactionsController.confirmPayment)
+)
+
 /* =========================
    REFUND (ADMIN ONLY - KEEP IF NEEDED)
 ========================= */
 router.patch(
   "/:transactionId/refund",
   protect(),
+  restrictTo("admin"),
   validate(paramsTransactionIdSchema, "params"),
   asyncHandler(paymentTransactionsController.refundPayment)
 );

@@ -7,7 +7,7 @@ import {
   paramsWithdrawRequestIdSchema,
   adminUpdateWithdrawRequestSchema
 } from "./withdrawRequests.validation.js";
-import { protect } from "../../../middlewares/protect.middleware.js";
+import { protect, restrictTo } from "../../../middlewares/protect.middleware.js";
 import { asyncHandler } from "../../../utils/asyncHandler.js";
 import { validate } from "../../../middlewares/validate.middleware.js";
 
@@ -49,6 +49,7 @@ router.get(
 router.patch(
   "/:withdrawRequestId/status",
   protect(),
+  restrictTo("admin"),
   validate(paramsWithdrawRequestIdSchema, "params"),
   validate(adminUpdateWithdrawRequestSchema, "body"),
   asyncHandler(withdrawController.updateWithdrawRequestStatus)

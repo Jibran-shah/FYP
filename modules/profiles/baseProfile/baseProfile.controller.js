@@ -65,8 +65,7 @@ export const updateProfile = asyncHandler(async (req, res) => {
 
 // DELETE
 export const deleteProfile = asyncHandler(async (req, res) => {
-
-  await profileService.deleteProfile(req.user.id);
+  await profileService.deleteProfile(req.user.id || req.validated?.params.id);
   clearCookie(res,AUTH_CONFIG.REFRESH_TOKEN.COOKIE_NAME);
   clearCookie(res,AUTH_CONFIG.ACCESS_TOKEN.COOKIE_NAME);
 

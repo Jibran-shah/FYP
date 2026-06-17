@@ -70,7 +70,7 @@ export const getServiceById = async (req, res) => {
 export const updateService = async (req, res) => {
   const service = await serviceService.updateService({
     serviceId: req.validated?.params.id,
-    userId: req.user.id,
+    user: req.user,
     data: req.validated?.body
   });
 
@@ -86,7 +86,7 @@ export const updateService = async (req, res) => {
 export const deleteService = async (req, res) => {
   await serviceService.deleteService({
     serviceId: req.validated?.params.id,
-    userId: req.user.id
+    user: req.user
   });
 
   res.status(204).send();

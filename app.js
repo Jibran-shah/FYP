@@ -51,18 +51,16 @@ import bookingRoutes from "./modules/bookings/bookings.routes.js";
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-
 app.use(
-      cors({
-        origin: ["http://localhost:5173"],
-        credentials: true,
-        methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-        allowedHeaders: ["Content-Type", "Authorization"],
-      })
-    );
+  cors({
+    origin: true,
+    credentials: true,
+  })
+);
 
-    // Explicit preflight handling
+
 app.options(/.*/, cors());
+app.set('trust proxy', 1);
 
 // ================= START SERVER =================
 const startServer = async () => {
@@ -74,6 +72,7 @@ const startServer = async () => {
     // =====================================================
     app.use(express.json());
     app.use(cookieParser());
+    app.use(express.urlencoded({ extended: true }));
 
     app.use(requestIdMiddleware);
     app.use(httpLogger);

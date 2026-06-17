@@ -23,6 +23,7 @@ import {
   isValidCoordinates
 } from "../../utils/location.utils.js";
 import { mediaPopulate, productSellerPopulate } from "../../populates/index.js";
+import { restrictTo } from "../../middlewares/protect.middleware.js";
 
 /* =========================================================
    CREATE PRODUCT (NEW MEDIA SYSTEM)
@@ -67,8 +68,10 @@ export const createProduct = async (payload, mediaContext = {}) => {
   const location =
     Array.isArray(coords) &&
     isValidCoordinates(coords[0], coords[1])
-      ? buildLocation(coords[0], coords[1], "")
+      ? buildLocation(coords[0], coords[1], seller?.location?.fullAddress ||"")
       : undefined;
+
+  
 
   const productPayload = {
     ...data,
@@ -108,7 +111,7 @@ export const syncSellerProductLocations = async (
   }
 
   const update = {
-    location: buildLocation(coords[0], coords[1], "")
+    location: buildLocation(coords[0], coords[1], seller?.location?.fullAddress || "")
   };
 
   const query = { seller: sellerId };
@@ -254,7 +257,6 @@ export const getProducts = async (query) => {
       .sort(sort)
       .skip((page - 1) * limit)
       .limit(limit),
-
     Product.countDocuments(filter)
   ]);
 
@@ -323,7 +325,7 @@ export const getProductById = async (
 
   const product = await Product.findById(productId)
     .populate(productSellerPopulate)
-    .populate("category", "name")
+    .populate("category")
     .populate(mediaPopulate);
 
   if (!product) {
@@ -338,10 +340,13 @@ export const getProductById = async (
 ========================================================= */
 export const updateProduct = async ({
   productId,
-  userId,
+  user,
   data,
   context = {}
 }) => {
+
+  data.imageIds = data.imageIds||[]
+
   if (!isValidId(productId)) {
     throw new BadRequestError("Invalid product id");
   }
@@ -352,7 +357,7 @@ export const updateProduct = async ({
     throw new NotFoundError("Product not found");
   }
 
-  if (product.seller.toString() !== String(userId)) {
+  if (product.seller.toString() !== String(user.productSeller)) {
     throw new UnauthorizedError(
       "Not allowed to update this product"
     );
@@ -365,7 +370,8 @@ export const updateProduct = async ({
     "soldCount",
     "ratingSum",
     "ratingCount",
-    "ratingAverage"
+    "ratingAverage",
+    "fullAddress"
   ];
 
   for (const field of forbiddenFields) {
@@ -379,16 +385,20 @@ export const updateProduct = async ({
   /* =========================
      MEDIA UPDATE (NEW SYSTEM)
   ========================= */
-  if (data.files || data.fileIds) {
+  if (data.files) {
     const images = await mediaService.resolve({
       files: data.files || [],
-      fileIds: data.fileIds || [],
       context,
-      userId
+      userId:user.id
     });
 
-    product.images = images;
+    product.images = [...images];
   }
+
+  console.log(data.imageIds)
+
+  product.images = [...product.images,...data.imageIds]
+
 
   Object.assign(product, data);
 
@@ -402,7 +412,7 @@ export const updateProduct = async ({
 ========================================================= */
 export const deleteProduct = async ({
   productId,
-  userId
+  user
 }) => {
   if (!isValidId(productId)) {
     throw new BadRequestError("Invalid product id");
@@ -414,10 +424,28 @@ export const deleteProduct = async ({
     throw new NotFoundError("Product not found");
   }
 
-  if (product.seller.toString() !== String(userId)) {
+  if (product.seller.toString() !== String(user.productSeller) || restrictTo("admin")) {
     throw new UnauthorizedError(
       "Not allowed to delete this product"
     );
+  }
+
+  await product.deleteOne();
+  return true;
+};
+
+
+export const deleteProductAdmin = async ({
+  productId
+}) => {
+  if (!isValidId(productId)) {
+    throw new BadRequestError("Invalid product id");
+  }
+
+  const product = await Product.findById(productId);
+
+  if (!product) {
+    throw new NotFoundError("Product not found");
   }
 
   await product.deleteOne();

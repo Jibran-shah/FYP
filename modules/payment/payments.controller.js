@@ -1,3 +1,4 @@
+import { date } from "joi";
 import * as paymentTransactionsService from "./payments.service.js";
 
 /* =========================
@@ -31,6 +32,15 @@ export const getMyPaymentTransactions = async (req, res) => {
     data: result
   });
 };
+
+export const confirmPayment = async(req,res)=>{
+  const result = await paymentTransactionsService.confirmPayment(req.validated?.body.trackerId)
+  res.status(200).json({
+    success:result.success,
+    message:result.success?"payment successfull":"payment failed",
+    data:result
+  })
+}
 
 /* =========================
    GET SINGLE TRANSACTION
@@ -66,3 +76,15 @@ export const handlePaymentWebhook = async (req, res) => {
     data: result
   });
 };
+
+export const refundPayment = async (req,res) => {
+  const result = await paymentTransactionsService.refundPayment({
+    transactionId:req.validated?.body.transactionId
+  })
+
+  res.status(200).json({
+    success: true,
+    message: "refunded successfully",
+    data:result
+  })
+}

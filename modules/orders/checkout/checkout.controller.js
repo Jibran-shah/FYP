@@ -5,12 +5,9 @@ import * as checkoutService from "./checkout.service.js";
    Cart -> BuyerOrder + PaymentTransaction
 ========================= */
 export const checkout = async (req, res) => {
-  const { paymentMethod, idempotencyKey } = req.validated.body;
-
+  console.log("req.user",req.user);
   const result = await checkoutService.checkout({
-    userId: req.user.id,
-    paymentMethod,
-    idempotencyKey
+    userId: req.user?.id,
   });
 
   res.status(201).json({
