@@ -1,5 +1,5 @@
-import redis from "../config/redis.js";
-import PushSubscription from "../models/PushSubscription.js";
+import {redis} from "../config/redis.js";
+import PushSubscription from "../models/PushSubscription.model.js"
 
 const CACHE_TTL = 60 * 60 * 24; // 24 hours
 

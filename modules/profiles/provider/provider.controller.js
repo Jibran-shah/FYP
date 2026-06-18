@@ -1,3 +1,4 @@
+import { response } from "express";
 import { AUTH_CONFIG } from "../../../config/auth.config.js";
 import { NotFoundError } from "../../../errors/Http.error.js";
 import { setCookie } from "../../../utils/cookie.js";
@@ -155,6 +156,22 @@ export const deleteServiceProvider = async (req, res) => {
     }
   });
 };
+
+
+
+/* =========================================================
+   DELETE
+========================================================= */
+export const deleteServiceProviderAdmin = async (req, res) => {
+  const id = req.validated?.params?.id;
+  const response = await deleteProviderAdminService(id);
+
+  return res.status(200).json({
+    success:true,
+    data:response
+  });
+};
+
 
 /* =========================================================
    BULK DELETE

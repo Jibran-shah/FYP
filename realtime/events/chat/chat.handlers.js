@@ -3,7 +3,7 @@ import { EVENTS } from "../../constants/events.constants.js";
 import { canAccessRoom } from "../../services/chatAccess.service.js";
 import { v4 as uuidv4 } from "uuid";
 import {presenceStore} from "../../utils/presence.store.js"
-import { notifyUser, sendPushNotification } from "../../../utils/sendNotification.js";
+import { notifyUser } from "../../../utils/sendNotification.js";
 
 /*
 =====================================================

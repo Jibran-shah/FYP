@@ -1,8 +1,8 @@
-import webpush from "../push.config.js";
-import PushSubscription from "../models/PushSubscription.js";
+import webpush from "../config/push.config.js";
+import PushSubscription from "../models/PushSubscription.model.js";
 import { getPushSubscription } from "./getPushSubscription.js";
-import { getIO } from "../socket/getIO.js";
-import presenceStore from "../realtime/utils/presence.store.js";
+import {getIO} from "../realtime/socket.js"
+import {presenceStore} from "../realtime/utils/presence.store.js";
 import crypto from "crypto";
 
 export const notifyUser = async ({

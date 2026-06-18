@@ -579,7 +579,7 @@ export const bulkDeleteProviders = async (
    DELETE PROVIDER
 ========================= */
 
-export const deleteProvider = async (id) => {
+export const deleteProviderAdminService = async (id) => {
   const session = await mongoose.startSession();
   session.startTransaction();
 

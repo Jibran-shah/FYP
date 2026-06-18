@@ -53,7 +53,7 @@ export const verifyWebhook = (req) => {
 };
 
 
-export const processRefund = (trackerToken, amount, currency = 'PKR') => {
+export const processRefund = async(trackerToken, amount, currency = 'PKR') => {
   try {
     // Execute the refund request
     const refundResponse = await safepay.payments.refund({

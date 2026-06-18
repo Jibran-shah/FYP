@@ -41,7 +41,7 @@ export const getProducts = async (req, res) => {
    GET MY PRODUCTS
 ====================== */
 export const getProductsBySeller = async (req, res) => {
-  const products = await productService.getProductsBySeller(req.validated?.params?.seller);
+  const products = await productService.getProductsBySeller(req?.user?.productSeller);
   res.json({
     success: true,
     data: products
